@@ -22,12 +22,15 @@ interface IProps {
     colored?: boolean;
     emphasizeDisplayName?: boolean;
     withTooltip?: boolean;
+
+    // These name overrides are used for Zephyr (if set, will use that name instead)
+    overrideName?: string | undefined;
+    overrideDisambiguation?: string | undefined;
 }
 
 export default class DisambiguatedProfile extends React.Component<IProps> {
     public render(): React.ReactNode {
-        const { fallbackName, member, colored, emphasizeDisplayName, withTooltip, onClick } = this.props;
-        const rawDisplayName = member?.rawDisplayName || fallbackName;
+        const { fallbackName, member, colored, emphasizeDisplayName, withTooltip, onClick, overrideName, overrideDisambiguation } = this.props;        const rawDisplayName = member?.rawDisplayName || fallbackName;
         const mxid = member?.userId;
 
         let colorClass: string | undefined;
@@ -44,8 +47,8 @@ export default class DisambiguatedProfile extends React.Component<IProps> {
                     withDisplayName: true,
                     roomId: member.roomId,
                 }) ?? mxid;
-            if (member?.disambiguate) {
-                mxidElement = <span className="mx_DisambiguatedProfile_mxid">{identifier}</span>;
+            if (overrideDisambiguation || member?.disambiguate) {
+                mxidElement = <span className="mx_DisambiguatedProfile_mxid">{overrideDisambiguation ?? identifier}</span>;
             }
             title = _t("timeline|disambiguated_profile", {
                 displayName: rawDisplayName,
@@ -60,7 +63,7 @@ export default class DisambiguatedProfile extends React.Component<IProps> {
         return (
             <div className="mx_DisambiguatedProfile" title={withTooltip ? title : undefined} onClick={onClick}>
                 <span className={displayNameClasses} dir="auto">
-                    {rawDisplayName}
+                    {overrideName ?? rawDisplayName}
                 </span>
                 {mxidElement}
             </div>

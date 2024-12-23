@@ -25,6 +25,29 @@ export default function SenderProfile({ mxEvent, onClick, withTooltip }: IProps)
         member: mxEvent.sender,
     });
 
+    // Zephyr specific stuff!
+    let overrideName: string | undefined;
+    let overrideDisambiguation: string | undefined;
+    const signature = mxEvent.getContent()['im.zephyr.signature'];
+    // const isAuthentic = mxEvent.getContent()['im.zephyr.authentic'];
+    if (signature) {
+        // This is a Zephyr message
+        // Not extracting it to a variable to avoid merge conflicts in the future
+        const senderId = mxEvent.getSender();
+        if (senderId) {
+            // Example: "@_zephyr_rgabriel:matrix.mit.edu"
+            const kerb = senderId.split(":")[0].substring(9);
+            
+            // This doesn't look that good, commenting out for now...
+            // if (isAuthentic === true) {
+                // overrideName = kerb + " ✅";
+            // } else {
+            overrideName = kerb;
+            // }            
+            overrideDisambiguation = signature;
+        }
+    }
+
     return mxEvent.getContent().msgtype !== MsgType.Emote ? (
         <DisambiguatedProfile
             fallbackName={mxEvent.getSender() ?? ""}
@@ -33,6 +56,8 @@ export default function SenderProfile({ mxEvent, onClick, withTooltip }: IProps)
             colored={true}
             emphasizeDisplayName={true}
             withTooltip={withTooltip}
+            overrideName={overrideName}
+            overrideDisambiguation={overrideDisambiguation}
         />
     ) : (
         <></>
