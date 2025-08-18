@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2016-2019 , 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -238,25 +238,25 @@ export function determineUnreadState(
     room?: Room,
     threadId?: string,
     includeThreads?: boolean,
-): { level: NotificationLevel; symbol: string | null; count: number } {
+): { level: NotificationLevel; symbol: string | null; count: number; invited: boolean } {
     if (!room) {
-        return { symbol: null, count: 0, level: NotificationLevel.None };
+        return { symbol: null, count: 0, level: NotificationLevel.None, invited: false };
     }
 
     if (getUnsentMessages(room, threadId).length > 0) {
-        return { symbol: "!", count: 1, level: NotificationLevel.Unsent };
+        return { symbol: "!", count: 1, level: NotificationLevel.Unsent, invited: false };
     }
 
     if (getEffectiveMembership(room.getMyMembership()) === EffectiveMembership.Invite) {
-        return { symbol: "!", count: 1, level: NotificationLevel.Highlight };
+        return { symbol: "!", count: 1, level: NotificationLevel.Highlight, invited: true };
     }
 
     if (SettingsStore.getValue("feature_ask_to_join") && isKnockDenied(room)) {
-        return { symbol: "!", count: 1, level: NotificationLevel.Highlight };
+        return { symbol: "!", count: 1, level: NotificationLevel.Highlight, invited: false };
     }
 
     if (getRoomNotifsState(room.client, room.roomId) === RoomNotifState.Mute) {
-        return { symbol: null, count: 0, level: NotificationLevel.None };
+        return { symbol: null, count: 0, level: NotificationLevel.None, invited: false };
     }
 
     const redNotifs = getUnreadNotificationCount(
@@ -269,12 +269,12 @@ export function determineUnreadState(
 
     const trueCount = greyNotifs || redNotifs;
     if (redNotifs > 0) {
-        return { symbol: null, count: trueCount, level: NotificationLevel.Highlight };
+        return { symbol: null, count: trueCount, level: NotificationLevel.Highlight, invited: false };
     }
 
     const markedUnreadState = getMarkedUnreadState(room);
     if (greyNotifs > 0 || markedUnreadState) {
-        return { symbol: null, count: trueCount, level: NotificationLevel.Notification };
+        return { symbol: null, count: trueCount, level: NotificationLevel.Notification, invited: false };
     }
 
     // We don't have any notified messages, but we might have unread messages. Let's find out.
@@ -293,5 +293,6 @@ export function determineUnreadState(
         symbol: null,
         count: trueCount,
         level: hasUnread ? NotificationLevel.Activity : NotificationLevel.None,
+        invited: false,
     };
 }

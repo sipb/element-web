@@ -2,18 +2,18 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import { render, RenderResult, screen } from "jest-matrix-react";
+import { render, type RenderResult, screen } from "jest-matrix-react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
-import { mocked, MockedObject } from "jest-mock";
-import { MatrixClient, MatrixError } from "matrix-js-sdk/src/matrix";
+import { mocked, type MockedObject } from "jest-mock";
+import { type MatrixClient, MatrixError } from "matrix-js-sdk/src/matrix";
 import { sleep } from "matrix-js-sdk/src/utils";
 
-import { filterConsole, flushPromises, stubClient } from "../../../../../test-utils";
+import { filterConsole, stubClient } from "../../../../../test-utils";
 import CreateSecretStorageDialog from "../../../../../../src/async-components/views/dialogs/security/CreateSecretStorageDialog";
 
 describe("CreateSecretStorageDialog", () => {
@@ -48,7 +48,7 @@ describe("CreateSecretStorageDialog", () => {
         expect(result.container).toMatchSnapshot();
         await userEvent.click(result.getByRole("button", { name: "Continue" }));
 
-        await screen.findByText("Save your Security Key");
+        await screen.findByText("Save your Recovery Key");
         expect(result.container).toMatchSnapshot();
         // Copy the key to enable the continue button
         await userEvent.click(screen.getByRole("button", { name: "Copy" }));
@@ -66,7 +66,7 @@ describe("CreateSecretStorageDialog", () => {
             "Safeguard against losing access to encrypted messages & data by backing up encryption keys on your server.",
         );
         await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-        await screen.findByText("Save your Security Key");
+        await screen.findByText("Save your Recovery Key");
         await userEvent.click(screen.getByRole("button", { name: "Copy" }));
         await userEvent.click(screen.getByRole("button", { name: "Continue" }));
 
@@ -96,40 +96,5 @@ describe("CreateSecretStorageDialog", () => {
             await userEvent.click(screen.getByRole("button", { name: "Retry" }));
             await screen.findByText("Your keys are now being backed up from this device.");
         });
-    });
-
-    it("resets keys in the right order when resetting secret storage and cross-signing", async () => {
-        const result = renderComponent({ forceReset: true, resetCrossSigning: true });
-
-        await result.findByText(/Set up Secure Backup/);
-        jest.spyOn(mockClient.getCrypto()!, "createRecoveryKeyFromPassphrase").mockResolvedValue({
-            privateKey: new Uint8Array(),
-            encodedPrivateKey: "abcd efgh ijkl",
-        });
-        result.getByRole("button", { name: "Continue" }).click();
-
-        await result.findByText(/Save your Security Key/);
-        result.getByRole("button", { name: "Copy" }).click();
-
-        // Resetting should reset secret storage, cross signing, and key
-        // backup.  We make sure that all three are reset, and done in the
-        // right order.
-        const resetFunctionCallLog: string[] = [];
-        jest.spyOn(mockClient.getCrypto()!, "bootstrapSecretStorage").mockImplementation(async () => {
-            resetFunctionCallLog.push("bootstrapSecretStorage");
-        });
-        jest.spyOn(mockClient.getCrypto()!, "bootstrapCrossSigning").mockImplementation(async () => {
-            resetFunctionCallLog.push("bootstrapCrossSigning");
-        });
-        jest.spyOn(mockClient.getCrypto()!, "resetKeyBackup").mockImplementation(async () => {
-            resetFunctionCallLog.push("resetKeyBackup");
-        });
-
-        await flushPromises();
-        result.getByRole("button", { name: "Continue" }).click();
-
-        await result.findByText("Your keys are now being backed up from this device.");
-
-        expect(resetFunctionCallLog).toEqual(["bootstrapSecretStorage", "bootstrapCrossSigning", "resetKeyBackup"]);
     });
 });

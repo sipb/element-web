@@ -2,12 +2,12 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2021 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import React, { useMemo, useState } from "react";
-import { Room, JoinRule } from "matrix-js-sdk/src/matrix";
+import { type Room, JoinRule } from "matrix-js-sdk/src/matrix";
 
 import { _t } from "../../../languageHandler";
 import DialogButtons from "../elements/DialogButtons";
@@ -15,22 +15,12 @@ import BaseDialog from "../dialogs/BaseDialog";
 import SpaceStore from "../../../stores/spaces/SpaceStore";
 import SpaceChildrenPicker from "../spaces/SpaceChildrenPicker";
 import { filterBoolean } from "../../../utils/arrays";
+import { isOnlyAdmin } from "../../../utils/membership";
 
 interface IProps {
     space: Room;
     onFinished(leave: boolean, rooms?: Room[]): void;
 }
-
-const isOnlyAdmin = (room: Room): boolean => {
-    const userId = room.client.getSafeUserId();
-    if (room.getMember(userId)?.powerLevelNorm !== 100) {
-        return false; // user is not an admin
-    }
-    return room.getJoinedMembers().every((member) => {
-        // return true if every other member has a lower power level (we are highest)
-        return member.userId === userId || member.powerLevelNorm < 100;
-    });
-};
 
 const LeaveSpaceDialog: React.FC<IProps> = ({ space, onFinished }) => {
     const spaceChildren = useMemo(() => {

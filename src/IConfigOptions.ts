@@ -3,13 +3,13 @@ Copyright 2024 New Vector Ltd.
 Copyright 2019-2022 The Matrix.org Foundation C.I.C.
 Copyright 2016 OpenMarket Ltd
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import { IClientWellKnown } from "matrix-js-sdk/src/matrix";
+import { type IClientWellKnown } from "matrix-js-sdk/src/matrix";
 
-import { ValidatedServerConfig } from "./utils/ValidatedServerConfig";
+import { type ValidatedServerConfig } from "./utils/ValidatedServerConfig";
 
 // Convention decision: All config options are lower_snake_case
 // We use an isolated file for the interface so we can mess around with the eslint options.
@@ -71,7 +71,7 @@ export interface IConfigOptions {
         url: string; // download url
         url_macos?: string;
         url_win64?: string;
-        url_win32?: string;
+        url_win64arm?: string;
         url_linux?: string;
     };
     mobile_builds: {
@@ -81,6 +81,7 @@ export interface IConfigOptions {
     };
 
     mobile_guide_toast?: boolean;
+    mobile_guide_app_variant?: "element" | "element-classic" | "element-pro";
 
     default_theme?: "light" | "dark" | string; // custom themes are strings
     default_country_code?: string; // ISO 3166 alpha2 country code
@@ -117,7 +118,6 @@ export interface IConfigOptions {
         obey_asserted_identity?: boolean; // MSC3086
     };
     element_call: {
-        url?: string;
         guest_spa_url?: string;
         use_exclusively?: boolean;
         participant_limit?: number;
@@ -206,6 +206,8 @@ export interface IConfigOptions {
         policy_uri?: string;
         contacts?: string[];
     };
+
+    modules?: string[];
 }
 
 export interface ISsoRedirectOptions {

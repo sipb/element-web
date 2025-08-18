@@ -3,22 +3,23 @@ Copyright 2024 New Vector Ltd.
 Copyright 2023 The Matrix.org Foundation C.I.C.
 Copyright 2022 Michael Telatynski <7t3chguy@gmail.com>
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { IContent, MatrixEvent } from "matrix-js-sdk/src/matrix";
+import { type IContent, type MatrixEvent } from "matrix-js-sdk/src/matrix";
 import classNames from "classnames";
 
 import { _t, _td } from "../../../../languageHandler";
-import BaseTool, { DevtoolsContext, IDevtoolsProps } from "./BaseTool";
+import BaseTool, { DevtoolsContext, type IDevtoolsProps } from "./BaseTool";
 import MatrixClientContext from "../../../../contexts/MatrixClientContext";
-import { EventEditor, EventViewer, eventTypeField, stateKeyField, IEditorProps, stringify } from "./Event";
+import { EventEditor, EventViewer, eventTypeField, stateKeyField, type IEditorProps, stringify } from "./Event";
 import FilteredList from "./FilteredList";
 import Spinner from "../../elements/Spinner";
 import SyntaxHighlight from "../../elements/SyntaxHighlight";
 import { useAsyncMemo } from "../../../../hooks/useAsyncMemo";
+import LabelledToggleSwitch from "../../elements/LabelledToggleSwitch";
 
 export const StateEventEditor: React.FC<IEditorProps> = ({ mxEvent, onBack }) => {
     const context = useContext(DevtoolsContext);
@@ -114,6 +115,7 @@ const RoomStateExplorerEventType: React.FC<IEventTypeProps> = ({ eventType, onBa
     const [query, setQuery] = useState("");
     const [event, setEvent] = useState<MatrixEvent | null>(null);
     const [history, setHistory] = useState(false);
+    const [showEmptyState, setShowEmptyState] = useState(true);
 
     const events = context.room.currentState.events.get(eventType)!;
 
@@ -149,10 +151,17 @@ const RoomStateExplorerEventType: React.FC<IEventTypeProps> = ({ eventType, onBa
     return (
         <BaseTool onBack={onBack}>
             <FilteredList query={query} onChange={setQuery}>
-                {Array.from(events.entries()).map(([stateKey, ev]) => (
-                    <StateEventButton key={stateKey} label={stateKey} onClick={() => setEvent(ev)} />
-                ))}
+                {Array.from(events.entries())
+                    .filter(([_, ev]) => showEmptyState || Object.keys(ev.getContent()).length > 0)
+                    .map(([stateKey, ev]) => (
+                        <StateEventButton key={stateKey} label={stateKey} onClick={() => setEvent(ev)} />
+                    ))}
             </FilteredList>
+            <LabelledToggleSwitch
+                label={_t("devtools|show_empty_content_events")}
+                onChange={setShowEmptyState}
+                value={showEmptyState}
+            />
         </BaseTool>
     );
 };

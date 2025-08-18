@@ -2,11 +2,11 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { useState } from "react";
+import React, { type JSX, useState } from "react";
 
 import NewAndImprovedIcon from "../../../../../res/img/element-icons/new-and-improved.svg";
 import { useMatrixClientContext } from "../../../../contexts/MatrixClientContext";
@@ -15,7 +15,7 @@ import { useSettingValue } from "../../../../hooks/useSettings";
 import { _t } from "../../../../languageHandler";
 import {
     DefaultNotificationSettings,
-    NotificationSettings,
+    type NotificationSettings,
 } from "../../../../models/notificationsettings/NotificationSettings";
 import { RoomNotifState } from "../../../../RoomNotifs";
 import { SettingLevel } from "../../../../settings/SettingLevel";
@@ -70,9 +70,9 @@ function useHasUnreadNotifications(): boolean {
 export default function NotificationSettings2(): JSX.Element {
     const cli = useMatrixClientContext();
 
-    const desktopNotifications = useSettingValue<boolean>("notificationsEnabled");
-    const desktopShowBody = useSettingValue<boolean>("notificationBodyEnabled");
-    const audioNotifications = useSettingValue<boolean>("audioNotificationsEnabled");
+    const desktopNotifications = useSettingValue("notificationsEnabled");
+    const desktopShowBody = useSettingValue("notificationBodyEnabled");
+    const audioNotifications = useSettingValue("audioNotificationsEnabled");
 
     const { model, hasPendingChanges, reconcile } = useNotificationSettings(cli);
 
@@ -182,7 +182,7 @@ export default function NotificationSettings2(): JSX.Element {
                     description={_t("settings|notifications|play_sound_for_description")}
                 >
                     <LabelledCheckbox
-                        label="People"
+                        label={_t("common|people")}
                         value={settings.sound.people !== undefined}
                         disabled={disabled || settings.defaultLevels.dm === RoomNotifState.MentionsOnly}
                         onChange={(value) => {

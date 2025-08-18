@@ -1,7 +1,7 @@
 /*
 Copyright 2024 New Vector Ltd.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -26,12 +26,12 @@ describe("<MiniAvatarUploader />", () => {
         const setAvatarUrl = jest.fn();
         const user = userEvent.setup();
 
-        const { container, findByText } = render(
+        const { container, findByLabelText } = render(
             <MiniAvatarUploader hasAvatar={false} noAvatarLabel="Upload" setAvatarUrl={setAvatarUrl} isUserAvatar />,
             withClientContextRenderOptions(cli),
         );
 
-        await findByText("Upload");
+        await findByLabelText("Upload");
         await user.upload(container.querySelector("input")!, AVATAR_FILE);
 
         expect(cli.uploadContent).toHaveBeenCalledWith(AVATAR_FILE);

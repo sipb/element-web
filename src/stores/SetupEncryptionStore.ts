@@ -2,26 +2,25 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2020-2024 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import EventEmitter from "events";
 import {
-    KeyBackupInfo,
+    type KeyBackupInfo,
     VerificationPhase,
-    VerificationRequest,
+    type VerificationRequest,
     VerificationRequestEvent,
     CryptoEvent,
 } from "matrix-js-sdk/src/crypto-api";
 import { logger } from "matrix-js-sdk/src/logger";
-import { Device, SecretStorage } from "matrix-js-sdk/src/matrix";
+import { type Device, type SecretStorage } from "matrix-js-sdk/src/matrix";
 
 import { MatrixClientPeg } from "../MatrixClientPeg";
 import { AccessCancelledError, accessSecretStorage } from "../SecurityManager";
-import { SdkContextClass } from "../contexts/SDKContext";
 import { asyncSome } from "../utils/arrays";
-import { initialiseDehydration } from "../utils/device/dehydration";
+import { initialiseDehydrationIfEnabled } from "../utils/device/dehydration";
 
 export enum Phase {
     Loading = 0,
@@ -30,9 +29,13 @@ export enum Phase {
     Done = 3, // final done stage, but still showing UX
     ConfirmSkip = 4,
     Finished = 5, // UX can be closed
-    ConfirmReset = 6,
 }
 
+/**
+ * Logic for setting up 4S and/or verifying the user's device: a process requiring
+ * ongoing interaction with the user, as distinct from InitialCryptoSetupStore which
+ * a (usually) non-interactive process that happens immediately after registration.
+ */
 export class SetupEncryptionStore extends EventEmitter {
     private started?: boolean;
     public phase?: Phase;
@@ -145,7 +148,7 @@ export class SetupEncryptionStore extends EventEmitter {
                     );
                     resolve();
 
-                    await initialiseDehydration();
+                    await initialiseDehydrationIfEnabled(cli);
 
                     if (backupInfo) {
                         await cli.getCrypto()?.loadSessionBackupPrivateKeyFromSecretStorage();
@@ -212,39 +215,6 @@ export class SetupEncryptionStore extends EventEmitter {
     }
 
     public returnAfterSkip(): void {
-        this.phase = Phase.Intro;
-        this.emit("update");
-    }
-
-    public reset(): void {
-        this.phase = Phase.ConfirmReset;
-        this.emit("update");
-    }
-
-    public async resetConfirm(): Promise<void> {
-        try {
-            // If we've gotten here, the user presumably lost their
-            // secret storage key if they had one. Start by resetting
-            // secret storage and setting up a new recovery key, then
-            // create new cross-signing keys once that succeeds.
-            await accessSecretStorage(
-                async (): Promise<void> => {
-                    this.phase = Phase.Finished;
-                },
-                {
-                    forceReset: true,
-                    resetCrossSigning: true,
-                    accountPassword: SdkContextClass.instance.accountPasswordStore.getPassword(),
-                },
-            );
-        } catch (e) {
-            logger.error("Error resetting cross-signing", e);
-            this.phase = Phase.Intro;
-        }
-        this.emit("update");
-    }
-
-    public returnAfterReset(): void {
         this.phase = Phase.Intro;
         this.emit("update");
     }

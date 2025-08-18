@@ -3,7 +3,7 @@ Copyright 2024 New Vector Ltd.
 Copyright 2019 Michael Telatynski <7t3chguy@gmail.com>
 Copyright 2019 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -129,7 +129,7 @@ function clearCustomTheme(): void {
     // remove all css variables, we assume these are there because of the custom theme
     const inlineStyleProps = Object.values(document.body.style);
     for (const prop of inlineStyleProps) {
-        if (prop.startsWith("--")) {
+        if (typeof prop === "string" && prop.startsWith("--")) {
             document.body.style.removeProperty(prop);
         }
     }
@@ -206,16 +206,49 @@ function generateCustomCompoundCSS(theme: CompoundTheme): string {
     return `@layer compound.custom { :root, [class*="cpd-theme-"] { ${properties.join(" ")} } }`;
 }
 
+/**
+ * Normalizes the hex colour to 8 characters (including alpha)
+ * @param hexColor the hex colour to normalize
+ */
+function normalizeHexColour(hexColor: string): string {
+    switch (hexColor.length) {
+        case 4:
+        case 5:
+            // Short RGB or RGBA hex
+            return `#${hexColor
+                .slice(1)
+                .split("")
+                .map((c) => c + c)
+                .join("")}`;
+        case 7:
+            // Long RGB hex
+            return `${hexColor}ff`;
+        default:
+            return hexColor;
+    }
+}
+
+function setHexAlpha(normalizedHexColor: string, alpha: number): string {
+    return normalizeHexColour(normalizedHexColor).slice(0, 7) + Math.round(alpha).toString(16).padStart(2, "0");
+}
+
+function parseAlpha(normalizedHexColor: string): number {
+    return parseInt(normalizedHexColor.slice(7), 16);
+}
+
 function setCustomThemeVars(customTheme: CustomTheme): void {
     const { style } = document.body;
 
     function setCSSColorVariable(name: string, hexColor: string, doPct = true): void {
         style.setProperty(`--${name}`, hexColor);
+        const normalizedHexColor = normalizeHexColour(hexColor);
+        const baseAlpha = parseAlpha(normalizedHexColor);
+
         if (doPct) {
-            // uses #rrggbbaa to define the color with alpha values at 0%, 15% and 50%
-            style.setProperty(`--${name}-0pct`, hexColor + "00");
-            style.setProperty(`--${name}-15pct`, hexColor + "26");
-            style.setProperty(`--${name}-50pct`, hexColor + "7F");
+            // uses #rrggbbaa to define the color with alpha values at 0%, 15% and 50% (relative to base alpha channel)
+            style.setProperty(`--${name}-0pct`, setHexAlpha(normalizedHexColor, 0));
+            style.setProperty(`--${name}-15pct`, setHexAlpha(normalizedHexColor, baseAlpha * 0.15));
+            style.setProperty(`--${name}-50pct`, setHexAlpha(normalizedHexColor, baseAlpha * 0.5));
         }
     }
 
@@ -263,9 +296,9 @@ export function getCustomTheme(themeName: string): CustomTheme {
     if (!customThemes) {
         throw new Error(`No custom themes set, can't set custom theme "${themeName}"`);
     }
-    const customTheme = customThemes.find((t: ITheme) => t.name === themeName);
+    const customTheme = customThemes.find((t: CustomTheme) => t.name === themeName);
     if (!customTheme) {
-        const knownNames = customThemes.map((t: ITheme) => t.name).join(", ");
+        const knownNames = customThemes.map((t: CustomTheme) => t.name).join(", ");
         throw new Error(`Can't find custom theme "${themeName}", only know ${knownNames}`);
     }
     return customTheme;

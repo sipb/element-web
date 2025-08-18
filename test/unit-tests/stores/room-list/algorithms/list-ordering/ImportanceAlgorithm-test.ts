@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -67,9 +67,9 @@ describe("ImportanceAlgorithm", () => {
     };
 
     const unreadStates: Record<string, ReturnType<(typeof RoomNotifs)["determineUnreadState"]>> = {
-        red: { symbol: null, count: 1, level: NotificationLevel.Highlight },
-        grey: { symbol: null, count: 1, level: NotificationLevel.Notification },
-        none: { symbol: null, count: 0, level: NotificationLevel.None },
+        red: { symbol: null, count: 1, level: NotificationLevel.Highlight, invited: false },
+        grey: { symbol: null, count: 1, level: NotificationLevel.Notification, invited: false },
+        none: { symbol: null, count: 0, level: NotificationLevel.None, invited: false },
     };
 
     beforeEach(() => {
@@ -77,6 +77,7 @@ describe("ImportanceAlgorithm", () => {
             symbol: null,
             count: 0,
             level: NotificationLevel.None,
+            invited: false,
         });
     });
 
@@ -183,6 +184,7 @@ describe("ImportanceAlgorithm", () => {
                 symbol: null,
                 count: 0,
                 level: NotificationLevel.None,
+                invited: false,
             });
             const algorithm = setupAlgorithm(sortAlgorithm);
 
@@ -353,6 +355,7 @@ describe("ImportanceAlgorithm", () => {
                 symbol: null,
                 count: 0,
                 level: NotificationLevel.None,
+                invited: false,
             });
             const algorithm = setupAlgorithm(sortAlgorithm);
 

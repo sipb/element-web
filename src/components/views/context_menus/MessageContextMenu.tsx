@@ -4,19 +4,19 @@ Copyright 2015-2023 The Matrix.org Foundation C.I.C.
 Copyright 2021, 2022 Šimon Brandner <simon.bra.ag@gmail.com>
 Copyright 2019 Michael Telatynski <7t3chguy@gmail.com>
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { createRef, useContext } from "react";
+import React, { type JSX, createRef, useContext } from "react";
 import {
     EventStatus,
-    MatrixEvent,
+    type MatrixEvent,
     MatrixEventEvent,
     RoomMemberEvent,
     EventType,
     RelationType,
-    Relations,
+    type Relations,
     Thread,
     M_POLL_START,
 } from "matrix-js-sdk/src/matrix";
@@ -31,10 +31,10 @@ import { isUrlPermitted } from "../../../HtmlUtils";
 import { canEditContent, editEvent, isContentActionable } from "../../../utils/EventUtils";
 import IconizedContextMenu, { IconizedContextMenuOption, IconizedContextMenuOptionList } from "./IconizedContextMenu";
 import { Action } from "../../../dispatcher/actions";
-import { RoomPermalinkCreator } from "../../../utils/permalinks/Permalinks";
-import { ButtonEvent } from "../elements/AccessibleButton";
+import { type RoomPermalinkCreator } from "../../../utils/permalinks/Permalinks";
+import { type ButtonEvent } from "../elements/AccessibleButton";
 import { copyPlaintext, getSelectedText } from "../../../utils/strings";
-import ContextMenu, { toRightOf, MenuProps } from "../../structures/ContextMenu";
+import ContextMenu, { toRightOf, type MenuProps } from "../../structures/ContextMenu";
 import ReactionPicker from "../emojipicker/ReactionPicker";
 import ViewSource from "../../structures/ViewSource";
 import { createRedactEventDialog } from "../dialogs/ConfirmRedactDialog";
@@ -42,14 +42,14 @@ import { ShareDialog } from "../dialogs/ShareDialog";
 import RoomContext, { TimelineRenderingType } from "../../../contexts/RoomContext";
 import EndPollDialog from "../dialogs/EndPollDialog";
 import { isPollEnded } from "../messages/MPollBody";
-import { ViewRoomPayload } from "../../../dispatcher/payloads/ViewRoomPayload";
-import { GetRelationsForEvent, IEventTileOps } from "../rooms/EventTile";
-import { OpenForwardDialogPayload } from "../../../dispatcher/payloads/OpenForwardDialogPayload";
-import { OpenReportEventDialogPayload } from "../../../dispatcher/payloads/OpenReportEventDialogPayload";
+import { type ViewRoomPayload } from "../../../dispatcher/payloads/ViewRoomPayload";
+import { type GetRelationsForEvent, type IEventTileOps } from "../rooms/EventTile";
+import { type OpenForwardDialogPayload } from "../../../dispatcher/payloads/OpenForwardDialogPayload";
+import { type OpenReportEventDialogPayload } from "../../../dispatcher/payloads/OpenReportEventDialogPayload";
 import { createMapSiteLinkFromEvent } from "../../../utils/location";
 import { getForwardableEvent } from "../../../events/forward/getForwardableEvent";
 import { getShareableLocationEvent } from "../../../events/location/getShareableLocationEvent";
-import { ShowThreadPayload } from "../../../dispatcher/payloads/ShowThreadPayload";
+import { type ShowThreadPayload } from "../../../dispatcher/payloads/ShowThreadPayload";
 import { CardContext } from "../right_panel/context";
 import PinningUtils from "../../../utils/PinningUtils";
 import PosthogTrackers from "../../../PosthogTrackers.ts";
@@ -130,8 +130,8 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
 
     private reactButtonRef = createRef<any>(); // XXX Ref to a functional component
 
-    public constructor(props: IProps, context: React.ContextType<typeof RoomContext>) {
-        super(props, context);
+    public constructor(props: IProps) {
+        super(props);
 
         this.state = {
             canRedact: false,
@@ -181,6 +181,30 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
             this.state.canRedact &&
             !isPollEnded(mxEvent, MatrixClientPeg.safeGet())
         );
+    }
+
+    /**
+     * Returns true if the current selection is entirely within a single "mx_MTextBody" element.
+     */
+    private isSelectionWithinSingleTextBody(): boolean {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return false;
+        const range = selection.getRangeAt(0);
+
+        function getParentByClass(node: Node | null, className: string): HTMLElement | null {
+            while (node) {
+                if (node instanceof HTMLElement && node.classList.contains(className)) {
+                    return node;
+                }
+                node = node.parentNode;
+            }
+            return null;
+        }
+
+        const startTextBody = getParentByClass(range.startContainer, "mx_MTextBody");
+        const endTextBody = getParentByClass(range.endContainer, "mx_MTextBody");
+
+        return !!startTextBody && startTextBody === endTextBody;
     }
 
     private onResendReactionsClick = (): void => {
@@ -276,6 +300,24 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
 
     private onCopyClick = (): void => {
         copyPlaintext(getSelectedText());
+        this.closeMenu();
+    };
+
+    private onQuoteClick = (): void => {
+        const selectedText = getSelectedText();
+        if (selectedText) {
+            // Format as markdown quote
+            const quotedText = selectedText
+                .trim()
+                .split(/\r?\n/)
+                .map((line) => `> ${line}`)
+                .join("\n");
+            dis.dispatch({
+                action: Action.ComposerInsert,
+                text: "\n" + quotedText + "\n\n ",
+                timelineRenderingType: this.context.timelineRenderingType,
+            });
+        }
         this.closeMenu();
     };
 
@@ -549,14 +591,28 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
             );
         }
 
+        const selectedText = getSelectedText();
+
         let copyButton: JSX.Element | undefined;
-        if (rightClick && getSelectedText()) {
+        if (rightClick && selectedText) {
             copyButton = (
                 <IconizedContextMenuOption
                     iconClassName="mx_MessageContextMenu_iconCopy"
                     label={_t("action|copy")}
                     triggerOnMouseDown={true} // We use onMouseDown so that the selection isn't cleared when we click
                     onClick={this.onCopyClick}
+                />
+            );
+        }
+
+        let quoteButton: JSX.Element | undefined;
+        if (rightClick && selectedText && selectedText.trim().length > 0 && this.isSelectionWithinSingleTextBody()) {
+            quoteButton = (
+                <IconizedContextMenuOption
+                    iconClassName="mx_MessageContextMenu_iconQuote"
+                    label={_t("action|quote")}
+                    triggerOnMouseDown={true}
+                    onClick={this.onQuoteClick}
                 />
             );
         }
@@ -630,10 +686,11 @@ export default class MessageContextMenu extends React.Component<IProps, IState> 
         }
 
         let nativeItemsList: JSX.Element | undefined;
-        if (copyButton || copyLinkButton) {
+        if (copyButton || quoteButton || copyLinkButton) {
             nativeItemsList = (
                 <IconizedContextMenuOptionList>
                     {copyButton}
+                    {quoteButton}
                     {copyLinkButton}
                 </IconizedContextMenuOptionList>
             );

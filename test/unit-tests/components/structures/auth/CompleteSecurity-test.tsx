@@ -1,12 +1,12 @@
 /*
 Copyright 2024 New Vector Ltd.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import React from "react";
-import { render, screen } from "jest-matrix-react";
+import { act, render, screen } from "jest-matrix-react";
 import { mocked } from "jest-mock";
 import EventEmitter from "events";
 
@@ -75,5 +75,21 @@ describe("CompleteSecurity", () => {
         render(<CompleteSecurity onFinished={() => {}} />);
 
         expect(screen.queryByRole("button", { name: "Skip verification for now" })).not.toBeInTheDocument();
+    });
+
+    it("Renders a warning if user hits Reset", async () => {
+        // Given a store and a dialog based on it
+        const store = new SetupEncryptionStore();
+        jest.spyOn(SetupEncryptionStore, "sharedInstance").mockReturnValue(store);
+        const panel = await act(() => render(<CompleteSecurity onFinished={() => {}} />));
+
+        // When we hit reset
+        await act(async () => panel.getByRole("button", { name: "Proceed with reset" }).click());
+
+        // Then the reset identity dialog appears
+        expect(
+            screen.getByRole("heading", { name: "Are you sure you want to reset your identity?" }),
+        ).toBeInTheDocument();
+        expect(panel.getByRole("button", { name: "Continue" })).toBeInTheDocument();
     });
 });

@@ -2,31 +2,30 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React from "react";
+import React, { type JSX } from "react";
 import {
-    MatrixEvent,
+    type MatrixEvent,
     EventType,
     MsgType,
     RelationType,
-    MatrixClient,
+    type MatrixClient,
     GroupCallIntent,
     M_POLL_END,
     M_POLL_START,
 } from "matrix-js-sdk/src/matrix";
-import { Optional } from "matrix-events-sdk";
+import { type Optional } from "matrix-events-sdk";
 
 import SettingsStore from "../settings/SettingsStore";
-import LegacyCallEventGrouper from "../components/structures/LegacyCallEventGrouper";
-import { EventTileProps } from "../components/views/rooms/EventTile";
+import type LegacyCallEventGrouper from "../components/structures/LegacyCallEventGrouper";
+import { type EventTileProps } from "../components/views/rooms/EventTile";
 import { TimelineRenderingType } from "../contexts/RoomContext";
 import MessageEvent from "../components/views/messages/MessageEvent";
 import LegacyCallEvent from "../components/views/messages/LegacyCallEvent";
 import { CallEvent } from "../components/views/messages/CallEvent";
-import TextualEvent from "../components/views/messages/TextualEvent";
 import EncryptionEvent from "../components/views/messages/EncryptionEvent";
 import { RoomPredecessorTile } from "../components/views/messages/RoomPredecessorTile";
 import RoomAvatarEvent from "../components/views/messages/RoomAvatarEvent";
@@ -42,6 +41,10 @@ import HiddenBody from "../components/views/messages/HiddenBody";
 import ViewSourceEvent from "../components/views/messages/ViewSourceEvent";
 import { shouldDisplayAsBeaconTile } from "../utils/beacon/timeline";
 import { ElementCall } from "../models/Call";
+import { type IBodyProps } from "../components/views/messages/IBodyProps";
+import ModuleApi from "../modules/Api";
+import { TextualEventViewModel } from "../viewmodels/event-tiles/TextualEventViewModel";
+import { TextualEvent } from "../shared-components/event-tiles/TextualEvent";
 
 // Subset of EventTile's IProps plus some mixins
 export interface EventTileTypeProps
@@ -51,7 +54,6 @@ export interface EventTileTypeProps
         | "highlights"
         | "highlightLink"
         | "showUrlPreview"
-        | "onHeightChanged"
         | "forExport"
         | "getRelationsForEvent"
         | "editState"
@@ -64,19 +66,23 @@ export interface EventTileTypeProps
     ref?: React.RefObject<any>; // `any` because it's effectively impossible to convince TS of a reasonable type
     timestamp?: JSX.Element;
     maxImageHeight?: number; // pixels
-    overrideBodyTypes?: Record<string, typeof React.Component>;
-    overrideEventTypes?: Record<string, typeof React.Component>;
+    overrideBodyTypes?: Record<string, React.ComponentType<IBodyProps>>;
+    overrideEventTypes?: Record<string, React.ComponentType<IBodyProps>>;
+    showHiddenEvents: boolean;
 }
 
 type FactoryProps = Omit<EventTileTypeProps, "ref">;
-type Factory<X = FactoryProps> = (ref: Optional<React.RefObject<any>>, props: X) => JSX.Element;
+type Factory<X = FactoryProps> = (ref: React.RefObject<any> | undefined, props: X) => JSX.Element;
 
 export const MessageEventFactory: Factory = (ref, props) => <MessageEvent ref={ref} {...props} />;
 const LegacyCallEventFactory: Factory<FactoryProps & { callEventGrouper: LegacyCallEventGrouper }> = (ref, props) => (
     <LegacyCallEvent ref={ref} {...props} />
 );
 const CallEventFactory: Factory = (ref, props) => <CallEvent ref={ref} {...props} />;
-export const TextualEventFactory: Factory = (ref, props) => <TextualEvent ref={ref} {...props} />;
+export const TextualEventFactory: Factory = (ref, props) => {
+    const vm = new TextualEventViewModel(props);
+    return <TextualEvent vm={vm} />;
+};
 const VerificationReqFactory: Factory = (_ref, props) => <MKeyVerificationRequest {...props} />;
 const HiddenEventFactory: Factory = (ref, props) => <HiddenBody ref={ref} {...props} />;
 
@@ -251,13 +257,19 @@ export function pickFactory(
 export function renderTile(
     renderType: TimelineRenderingType,
     props: EventTileTypeProps,
-    showHiddenEvents: boolean,
     cli?: MatrixClient,
 ): Optional<JSX.Element> {
     cli = cli ?? MatrixClientPeg.safeGet(); // because param defaults don't do the correct thing
 
-    const factory = pickFactory(props.mxEvent, cli, showHiddenEvents);
-    if (!factory) return undefined;
+    const factory = pickFactory(props.mxEvent, cli, props.showHiddenEvents);
+    if (!factory) {
+        // If we don't have a factory for this event, attempt
+        // to find a custom component that can render it.
+        // Will return null if no custom component can render it.
+        return ModuleApi.customComponents.renderMessage({
+            mxEvent: props.mxEvent,
+        });
+    }
 
     // Note that we split off the ones we actually care about here just to be sure that we're
     // not going to accidentally send things we shouldn't from lazy callers. Eg: EventTile's
@@ -273,50 +285,62 @@ export function renderTile(
         highlightLink,
         showUrlPreview,
         permalinkCreator,
-        onHeightChanged,
         callEventGrouper,
         getRelationsForEvent,
         isSeeingThroughMessageHiddenForModeration,
         timestamp,
         inhibitInteraction,
+        showHiddenEvents,
     } = props;
 
     switch (renderType) {
         case TimelineRenderingType.File:
         case TimelineRenderingType.Notification:
         case TimelineRenderingType.Thread:
-            // We only want a subset of props, so we don't end up causing issues for downstream components.
-            return factory(props.ref, {
-                mxEvent,
-                highlights,
-                highlightLink,
-                showUrlPreview,
-                onHeightChanged,
-                editState,
-                replacingEventId,
-                getRelationsForEvent,
-                isSeeingThroughMessageHiddenForModeration,
-                permalinkCreator,
-                inhibitInteraction,
-            });
+            return ModuleApi.customComponents.renderMessage(
+                {
+                    mxEvent: props.mxEvent,
+                },
+                (origProps) =>
+                    factory(props.ref, {
+                        // We only want a subset of props, so we don't end up causing issues for downstream components.
+                        mxEvent,
+                        highlights,
+                        highlightLink,
+                        showUrlPreview: origProps?.showUrlPreview ?? showUrlPreview,
+                        editState,
+                        replacingEventId,
+                        getRelationsForEvent,
+                        isSeeingThroughMessageHiddenForModeration,
+                        permalinkCreator,
+                        inhibitInteraction,
+                        showHiddenEvents,
+                    }),
+            );
         default:
-            // NEARLY ALL THE OPTIONS!
-            return factory(ref, {
-                mxEvent,
-                forExport,
-                replacingEventId,
-                editState,
-                highlights,
-                highlightLink,
-                showUrlPreview,
-                permalinkCreator,
-                onHeightChanged,
-                callEventGrouper,
-                getRelationsForEvent,
-                isSeeingThroughMessageHiddenForModeration,
-                timestamp,
-                inhibitInteraction,
-            });
+            return ModuleApi.customComponents.renderMessage(
+                {
+                    mxEvent: props.mxEvent,
+                },
+                (origProps) =>
+                    factory(ref, {
+                        // NEARLY ALL THE OPTIONS!
+                        mxEvent,
+                        forExport,
+                        replacingEventId,
+                        editState,
+                        highlights,
+                        highlightLink,
+                        showUrlPreview: origProps?.showUrlPreview ?? showUrlPreview,
+                        permalinkCreator,
+                        callEventGrouper,
+                        getRelationsForEvent,
+                        isSeeingThroughMessageHiddenForModeration,
+                        timestamp,
+                        inhibitInteraction,
+                        showHiddenEvents,
+                    }),
+            );
     }
 }
 
@@ -335,7 +359,14 @@ export function renderReplyTile(
     cli = cli ?? MatrixClientPeg.safeGet(); // because param defaults don't do the correct thing
 
     const factory = pickFactory(props.mxEvent, cli, showHiddenEvents);
-    if (!factory) return undefined;
+    if (!factory) {
+        // If we don't have a factory for this event, attempt
+        // to find a custom component that can render it.
+        // Will return null if no custom component can render it.
+        return ModuleApi.customComponents.renderMessage({
+            mxEvent: props.mxEvent,
+        });
+    }
 
     // See renderTile() for why we split off so much
     const {
@@ -343,7 +374,6 @@ export function renderReplyTile(
         mxEvent,
         highlights,
         highlightLink,
-        onHeightChanged,
         showUrlPreview,
         overrideBodyTypes,
         overrideEventTypes,
@@ -354,20 +384,26 @@ export function renderReplyTile(
         permalinkCreator,
     } = props;
 
-    return factory(ref, {
-        mxEvent,
-        highlights,
-        highlightLink,
-        onHeightChanged,
-        showUrlPreview,
-        overrideBodyTypes,
-        overrideEventTypes,
-        replacingEventId,
-        maxImageHeight,
-        getRelationsForEvent,
-        isSeeingThroughMessageHiddenForModeration,
-        permalinkCreator,
-    });
+    return ModuleApi.customComponents.renderMessage(
+        {
+            mxEvent: props.mxEvent,
+        },
+        (origProps) =>
+            factory(ref, {
+                mxEvent,
+                highlights,
+                highlightLink,
+                showUrlPreview: origProps?.showUrlPreview ?? showUrlPreview,
+                overrideBodyTypes,
+                overrideEventTypes,
+                replacingEventId,
+                maxImageHeight,
+                getRelationsForEvent,
+                isSeeingThroughMessageHiddenForModeration,
+                permalinkCreator,
+                showHiddenEvents,
+            }),
+    );
 }
 
 // XXX: this'll eventually be dynamic based on the fields once we have extensible event types
@@ -389,6 +425,12 @@ export function haveRendererForEvent(
     // and state events as they'll likely still contain enough keys to be relevant.
     if (mxEvent.isRedacted() && !mxEvent.isEncrypted() && !isMessageEvent(mxEvent) && !mxEvent.isState()) {
         return false;
+    }
+
+    // Check to see if we have any hints for this message, which indicates
+    // there is a custom renderer for the event.
+    if (ModuleApi.customComponents.getHintsForMessage(mxEvent)) {
+        return true;
     }
 
     // No tile for replacement events since they update the original tile

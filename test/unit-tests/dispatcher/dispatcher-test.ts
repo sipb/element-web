@@ -2,11 +2,9 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
-
-import { defer } from "matrix-js-sdk/src/utils";
 
 import defaultDispatcher from "../../../src/dispatcher/dispatcher";
 import { Action } from "../../../src/dispatcher/actions";
@@ -20,8 +18,8 @@ describe("MatrixDispatcher", () => {
     });
 
     it("should execute callbacks in registered order", async () => {
-        const deferred1 = defer<number>();
-        const deferred2 = defer<number>();
+        const deferred1 = Promise.withResolvers<number>();
+        const deferred2 = Promise.withResolvers<number>();
 
         const fn1 = jest.fn(() => deferred1.resolve(1));
         const fn2 = jest.fn(() => deferred2.resolve(2));
@@ -36,8 +34,8 @@ describe("MatrixDispatcher", () => {
     });
 
     it("should skip the queue for the given callback", async () => {
-        const deferred1 = defer<number>();
-        const deferred2 = defer<number>();
+        const deferred1 = Promise.withResolvers<number>();
+        const deferred2 = Promise.withResolvers<number>();
 
         const fn1 = jest.fn(() => deferred1.resolve(1));
         const fn2 = jest.fn(() => deferred2.resolve(2));

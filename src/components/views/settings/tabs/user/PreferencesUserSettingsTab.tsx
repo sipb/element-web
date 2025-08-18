@@ -1,17 +1,16 @@
 /*
-Copyright 2024 New Vector Ltd.
+Copyright 2024, 2025 New Vector Ltd.
 Copyright 2019-2023 The Matrix.org Foundation C.I.C.
 Copyright 2019 Michael Telatynski <7t3chguy@gmail.com>
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { ReactElement, useCallback, useEffect, useState } from "react";
+import React, { type JSX, type ReactElement, useCallback, useEffect, useState } from "react";
 
-import { NonEmptyArray } from "../../../../../@types/common";
+import { type NonEmptyArray } from "../../../../../@types/common";
 import { _t, getCurrentLanguage } from "../../../../../languageHandler";
-import { UseCase } from "../../../../../settings/enums/UseCase";
 import SettingsStore from "../../../../../settings/SettingsStore";
 import Field from "../../../elements/Field";
 import Dropdown from "../../../elements/Dropdown";
@@ -20,10 +19,9 @@ import SettingsFlag from "../../../elements/SettingsFlag";
 import AccessibleButton from "../../../elements/AccessibleButton";
 import dis from "../../../../../dispatcher/dispatcher";
 import { UserTab } from "../../../dialogs/UserTab";
-import { OpenToTabPayload } from "../../../../../dispatcher/payloads/OpenToTabPayload";
+import { type OpenToTabPayload } from "../../../../../dispatcher/payloads/OpenToTabPayload";
 import { Action } from "../../../../../dispatcher/actions";
 import SdkConfig from "../../../../../SdkConfig";
-import { showUserOnboardingPage } from "../../../user-onboarding/UserOnboardingPage";
 import { SettingsSubsection } from "../../shared/SettingsSubsection";
 import SettingsTab from "../SettingsTab";
 import { SettingsSection } from "../../shared/SettingsSection";
@@ -33,6 +31,9 @@ import { IS_MAC } from "../../../../../Keyboard";
 import SpellCheckSettings from "../../SpellCheckSettings";
 import LabelledToggleSwitch from "../../../elements/LabelledToggleSwitch";
 import * as TimezoneHandler from "../../../../../TimezoneHandler";
+import { type BooleanSettingKey } from "../../../../../settings/Settings.tsx";
+import { MediaPreviewAccountSettings } from "./MediaPreviewAccountSettings.tsx";
+import { InviteRulesAccountSetting } from "./InviteRulesAccountSettings.tsx";
 
 interface IProps {
     closeSettingsFn(success: boolean): void;
@@ -117,15 +118,15 @@ const SpellCheckSection: React.FC = () => {
 };
 
 export default class PreferencesUserSettingsTab extends React.Component<IProps, IState> {
-    private static ROOM_LIST_SETTINGS = ["breadcrumbs", "FTUE.userOnboardingButton"];
+    private static ROOM_LIST_SETTINGS: BooleanSettingKey[] = ["breadcrumbs"];
 
-    private static SPACES_SETTINGS = ["Spaces.allRoomsInHome"];
+    private static SPACES_SETTINGS: BooleanSettingKey[] = ["Spaces.allRoomsInHome"];
 
-    private static KEYBINDINGS_SETTINGS = ["ctrlFForSearch"];
+    private static KEYBINDINGS_SETTINGS: BooleanSettingKey[] = ["ctrlFForSearch"];
 
-    private static PRESENCE_SETTINGS = ["sendReadReceipts", "sendTypingNotifications"];
+    private static PRESENCE_SETTINGS: BooleanSettingKey[] = ["sendReadReceipts", "sendTypingNotifications"];
 
-    private static COMPOSER_SETTINGS = [
+    private static COMPOSER_SETTINGS: BooleanSettingKey[] = [
         "MessageComposerInput.autoReplaceEmoji",
         "MessageComposerInput.useMarkdown",
         "MessageComposerInput.suggestEmoji",
@@ -135,17 +136,21 @@ export default class PreferencesUserSettingsTab extends React.Component<IProps, 
         "MessageComposerInput.insertTrailingColon",
     ];
 
-    private static TIME_SETTINGS = ["showTwelveHourTimestamps", "alwaysShowTimestamps"];
+    private static TIME_SETTINGS: BooleanSettingKey[] = ["showTwelveHourTimestamps", "alwaysShowTimestamps"];
 
-    private static CODE_BLOCKS_SETTINGS = [
+    private static CODE_BLOCKS_SETTINGS: BooleanSettingKey[] = [
         "enableSyntaxHighlightLanguageDetection",
         "expandCodeByDefault",
         "showCodeLineNumbers",
     ];
 
-    private static IMAGES_AND_VIDEOS_SETTINGS = ["urlPreviewsEnabled", "autoplayGifs", "autoplayVideo", "showImages"];
+    private static IMAGES_AND_VIDEOS_SETTINGS: BooleanSettingKey[] = [
+        "urlPreviewsEnabled",
+        "autoplayGifs",
+        "autoplayVideo",
+    ];
 
-    private static TIMELINE_SETTINGS = [
+    private static TIMELINE_SETTINGS: BooleanSettingKey[] = [
         "showTypingNotifications",
         "showRedactions",
         "showReadReceipts",
@@ -159,9 +164,9 @@ export default class PreferencesUserSettingsTab extends React.Component<IProps, 
         "useOnlyCurrentProfiles",
     ];
 
-    private static ROOM_DIRECTORY_SETTINGS = ["SpotlightSearch.showNsfwPublicRooms"];
+    private static ROOM_DIRECTORY_SETTINGS: BooleanSettingKey[] = ["SpotlightSearch.showNsfwPublicRooms"];
 
-    private static GENERAL_SETTINGS = [
+    private static GENERAL_SETTINGS: BooleanSettingKey[] = [
         "promptBeforeInviteUnknownUsers",
         // Start automatically after startup (electron-only)
         // Autocomplete delay (niche text box)
@@ -220,8 +225,14 @@ export default class PreferencesUserSettingsTab extends React.Component<IProps, 
         SettingsStore.setValue("readMarkerOutOfViewThresholdMs", null, SettingLevel.DEVICE, e.target.value);
     };
 
-    private renderGroup(settingIds: string[], level = SettingLevel.ACCOUNT): React.ReactNodeArray {
-        return settingIds.map((i) => <SettingsFlag key={i} name={i} level={level} />);
+    private renderGroup(settingIds: BooleanSettingKey[], level = SettingLevel.ACCOUNT): JSX.Element {
+        return (
+            <>
+                {settingIds.map((i) => (
+                    <SettingsFlag key={i} name={i} level={level} />
+                ))}
+            </>
+        );
     }
 
     private onKeyboardShortcutsClicked = (): void => {
@@ -232,14 +243,11 @@ export default class PreferencesUserSettingsTab extends React.Component<IProps, 
     };
 
     public render(): React.ReactNode {
-        const useCase = SettingsStore.getValue<UseCase | null>("FTUE.useCaseSelection");
-        const roomListSettings = PreferencesUserSettingsTab.ROOM_LIST_SETTINGS
-            // Only show the user onboarding setting if the user should see the user onboarding page
-            .filter((it) => it !== "FTUE.userOnboardingButton" || showUserOnboardingPage(useCase));
-
         const browserTimezoneLabel: string = _t("settings|preferences|default_timezone", {
             timezone: TimezoneHandler.shortBrowserTimezone(),
         });
+
+        const newRoomListEnabled = SettingsStore.getValue("feature_new_room_list");
 
         // Always Preprend the default option
         const timezones = this.state.timezones.map((tz) => {
@@ -256,11 +264,13 @@ export default class PreferencesUserSettingsTab extends React.Component<IProps, 
                         <SpellCheckSection />
                     </SettingsSubsection>
 
-                    {roomListSettings.length > 0 && (
-                        <SettingsSubsection heading={_t("settings|preferences|room_list_heading")}>
-                            {this.renderGroup(roomListSettings)}
-                        </SettingsSubsection>
-                    )}
+                    <SettingsSubsection heading={_t("settings|preferences|room_list_heading")}>
+                        {this.renderGroup(PreferencesUserSettingsTab.ROOM_LIST_SETTINGS)}
+                        {/* The settings is on device level where the other room list settings are on account level  */}
+                        {newRoomListEnabled && (
+                            <SettingsFlag name="RoomList.showMessagePreview" level={SettingLevel.DEVICE} />
+                        )}
+                    </SettingsSubsection>
 
                     <SettingsSubsection heading={_t("common|spaces")}>
                         {this.renderGroup(PreferencesUserSettingsTab.SPACES_SETTINGS, SettingLevel.ACCOUNT)}
@@ -328,6 +338,11 @@ export default class PreferencesUserSettingsTab extends React.Component<IProps, 
                         {this.renderGroup(PreferencesUserSettingsTab.TIMELINE_SETTINGS)}
                     </SettingsSubsection>
 
+                    <SettingsSubsection heading={_t("common|moderation_and_safety")} legacy={false}>
+                        <MediaPreviewAccountSettings />
+                        <InviteRulesAccountSetting />
+                    </SettingsSubsection>
+
                     <SettingsSubsection heading={_t("settings|preferences|room_directory_heading")}>
                         {this.renderGroup(PreferencesUserSettingsTab.ROOM_DIRECTORY_SETTINGS)}
                     </SettingsSubsection>
@@ -343,6 +358,12 @@ export default class PreferencesUserSettingsTab extends React.Component<IProps, 
                             label={_t("settings|preferences|Electron.enableHardwareAcceleration", {
                                 appName: SdkConfig.get().brand,
                             })}
+                        />
+                        <SettingsFlag
+                            name="Electron.enableContentProtection"
+                            level={SettingLevel.PLATFORM}
+                            hideIfCannotSet
+                            label={_t("settings|preferences|Electron.enableContentProtection")}
                         />
                         <SettingsFlag name="Electron.alwaysShowMenuBar" level={SettingLevel.PLATFORM} hideIfCannotSet />
                         <SettingsFlag name="Electron.autoLaunch" level={SettingLevel.PLATFORM} hideIfCannotSet />

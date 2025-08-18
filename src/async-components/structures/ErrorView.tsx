@@ -1,16 +1,16 @@
 /*
 Copyright 2020-2024 New Vector Ltd.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { ReactNode } from "react";
+import React, { type JSX, type ReactNode } from "react";
 import { Text, Heading, Button, Separator } from "@vector-im/compound-web";
 import PopOutIcon from "@vector-im/compound-design-tokens/assets/web/icons/pop-out";
 
 import SdkConfig from "../../SdkConfig";
-import { Flex } from "../../components/utils/Flex";
+import { Flex } from "../../shared-components/utils/Flex";
 import { _t } from "../../languageHandler";
 import { Icon as AppleIcon } from "../../../res/themes/element/img/compound/apple.svg";
 import { Icon as MicrosoftIcon } from "../../../res/themes/element/img/compound/microsoft.svg";
@@ -58,7 +58,7 @@ const MobileAppLinks: React.FC<{
     googlePlayUrl?: string;
     fdroidUrl?: string;
 }> = ({ appleAppStoreUrl, googlePlayUrl, fdroidUrl }) => (
-    <Flex gap="var(--cpd-space-6x)">
+    <Flex gap="var(--cpd-space-6x)" className="mx_ErrorView_flexContainer">
         {appleAppStoreUrl && (
             <a href={appleAppStoreUrl} target="_blank" rel="noreferrer noopener">
                 <img height="64" src="themes/element/img/download/apple.svg" alt="Apple App Store" />
@@ -80,11 +80,11 @@ const MobileAppLinks: React.FC<{
 const DesktopAppLinks: React.FC<{
     macOsUrl?: string;
     win64Url?: string;
-    win32Url?: string;
+    win64ArmUrl?: string;
     linuxUrl?: string;
-}> = ({ macOsUrl, win64Url, win32Url, linuxUrl }) => {
+}> = ({ macOsUrl, win64Url, win64ArmUrl, linuxUrl }) => {
     return (
-        <Flex gap="var(--cpd-space-4x)">
+        <Flex gap="var(--cpd-space-4x)" className="mx_ErrorView_flexContainer">
             {macOsUrl && (
                 <Button as="a" href={macOsUrl} kind="secondary" Icon={AppleIcon}>
                     {_t("incompatible_browser|macos")}
@@ -92,12 +92,12 @@ const DesktopAppLinks: React.FC<{
             )}
             {win64Url && (
                 <Button as="a" href={win64Url} kind="secondary" Icon={MicrosoftIcon}>
-                    {_t("incompatible_browser|windows", { bits: "64" })}
+                    {_t("incompatible_browser|windows_64bit")}
                 </Button>
             )}
-            {win32Url && (
-                <Button as="a" href={win32Url} kind="secondary" Icon={MicrosoftIcon}>
-                    {_t("incompatible_browser|windows", { bits: "32" })}
+            {win64ArmUrl && (
+                <Button as="a" href={win64ArmUrl} kind="secondary" Icon={MicrosoftIcon}>
+                    {_t("incompatible_browser|windows_arm_64bit")}
                 </Button>
             )}
             {linuxUrl && (
@@ -127,7 +127,7 @@ export const UnsupportedBrowserView: React.FC<{
         config.desktop_builds?.available &&
         (config.desktop_builds?.url_macos ||
             config.desktop_builds?.url_win64 ||
-            config.desktop_builds?.url_win32 ||
+            config.desktop_builds?.url_win64arm ||
             config.desktop_builds?.url_linux);
     const hasMobileBuilds = Boolean(
         config.mobile_builds?.ios || config.mobile_builds?.android || config.mobile_builds?.fdroid,
@@ -157,7 +157,7 @@ export const UnsupportedBrowserView: React.FC<{
                             <DesktopAppLinks
                                 macOsUrl={config.desktop_builds?.url_macos}
                                 win64Url={config.desktop_builds?.url_win64}
-                                win32Url={config.desktop_builds?.url_win32}
+                                win64ArmUrl={config.desktop_builds?.url_win64arm}
                                 linuxUrl={config.desktop_builds?.url_linux}
                             />
                         </>
@@ -193,7 +193,7 @@ export const UnsupportedBrowserView: React.FC<{
                 )}
             </Text>
 
-            <Flex gap="var(--cpd-space-4x)" className="mx_ErrorView_buttons">
+            <Flex gap="var(--cpd-space-4x)" className="mx_ErrorView_flexContainer mx_ErrorView_buttons">
                 <Button Icon={PopOutIcon} kind="secondary" size="sm">
                     {_t("incompatible_browser|learn_more")}
                 </Button>

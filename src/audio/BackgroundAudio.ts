@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2024 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -48,6 +48,12 @@ export class BackgroundAudio {
         source.buffer = this.sounds[url];
         source.loop = loop;
         source.connect(this.audioContext.destination);
+
+        await this.audioContext.resume();
+        source.onended = () => {
+            this.audioContext.suspend();
+        };
+
         source.start();
         return source;
     }

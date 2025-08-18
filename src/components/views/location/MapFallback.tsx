@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -16,7 +16,6 @@ import Spinner from "../elements/Spinner";
 interface Props extends React.HTMLAttributes<HTMLDivElement> {
     className?: string;
     isLoading?: boolean;
-    children?: React.ReactNode | React.ReactNodeArray;
 }
 
 const MapFallback: React.FC<Props> = ({ className, isLoading, children, ...rest }) => {

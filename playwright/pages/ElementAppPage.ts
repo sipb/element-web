@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -35,6 +35,10 @@ export class ElementAppPage {
     public get timeline(): Timeline {
         if (!this._timeline) this._timeline = new Timeline(this.page);
         return this._timeline;
+    }
+
+    public async cleanup() {
+        await this._client?.cleanup();
     }
 
     /**
@@ -110,7 +114,7 @@ export class ElementAppPage {
      * @param isRightPanel whether to select the right panel composer, otherwise the main timeline composer
      */
     public getComposerField(isRightPanel?: boolean): Locator {
-        return this.getComposer(isRightPanel).locator("[contenteditable]");
+        return this.getComposer(isRightPanel).locator("div[contenteditable]");
     }
 
     /**
@@ -154,10 +158,6 @@ export class ElementAppPage {
         return button.click();
     }
 
-    public async getClipboardText(): Promise<string> {
-        return this.page.evaluate("navigator.clipboard.readText()");
-    }
-
     public async openSpotlight(): Promise<Spotlight> {
         const spotlight = new Spotlight(this.page);
         await spotlight.open();
@@ -171,6 +171,18 @@ export class ElementAppPage {
     public async toggleRoomInfoPanel(): Promise<Locator> {
         await this.page.getByRole("button", { name: "Room info" }).first().click();
         return this.page.locator(".mx_RightPanel");
+    }
+
+    /**
+     * Opens/closes the memberlist panel
+     * @returns locator to the memberlist panel
+     */
+    public async toggleMemberlistPanel(): Promise<Locator> {
+        const locator = this.page.locator(".mx_FacePile");
+        await locator.click();
+        const memberlist = this.page.locator(".mx_MemberListView");
+        await memberlist.waitFor();
+        return memberlist;
     }
 
     /**
@@ -189,5 +201,38 @@ export class ElementAppPage {
             );
         }
         return this.page.locator(`id=${labelledById ?? describedById}`);
+    }
+
+    /**
+     * Close the notification toast
+     */
+    public closeNotificationToast(): Promise<void> {
+        // Dismiss "Notification" toast
+        return this.page
+            .locator(".mx_Toast_toast", { hasText: "Notifications" })
+            .getByRole("button", { name: "Dismiss" })
+            .click();
+    }
+
+    /**
+     * Scroll an infinite list to the bottom.
+     * @param list The element to scroll
+     */
+    public async scrollListToBottom(list: Locator): Promise<void> {
+        // First hover the mouse over the element that we want to scroll
+        await list.hover();
+
+        const needsScroll = async () => {
+            // From https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollHeight#determine_if_an_element_has_been_totally_scrolled
+            const fullyScrolled = await list.evaluate(
+                (e) => Math.abs(e.scrollHeight - e.clientHeight - e.scrollTop) <= 1,
+            );
+            return !fullyScrolled;
+        };
+
+        // Scroll the element until we detect that it is fully scrolled
+        do {
+            await this.page.mouse.wheel(0, 1000);
+        } while (await needsScroll());
     }
 }

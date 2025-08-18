@@ -1,33 +1,37 @@
 /*
-Copyright 2024 New Vector Ltd.
+Copyright 2024-2025 New Vector Ltd.
 Copyright 2022 Šimon Brandner <simon.bra.ag@gmail.com>
 Copyright 2018-2021 New Vector Ltd
 Copyright 2019 Michael Telatynski <7t3chguy@gmail.com>
 Copyright 2016 Aviral Dasgupta
 Copyright 2016 OpenMarket Ltd
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import { MatrixClient, Room, MatrixEvent, OidcRegistrationClientMetadata } from "matrix-js-sdk/src/matrix";
+import {
+    type MatrixClient,
+    type Room,
+    type MatrixEvent,
+    type OidcRegistrationClientMetadata,
+} from "matrix-js-sdk/src/matrix";
 import React from "react";
-import { randomString } from "matrix-js-sdk/src/randomstring";
 import { logger } from "matrix-js-sdk/src/logger";
 
-import BasePlatform, { UpdateCheckStatus, UpdateStatus } from "../../BasePlatform";
-import BaseEventIndexManager from "../../indexing/BaseEventIndexManager";
+import BasePlatform, { UpdateCheckStatus, type UpdateStatus } from "../../BasePlatform";
+import type BaseEventIndexManager from "../../indexing/BaseEventIndexManager";
 import dis from "../../dispatcher/dispatcher";
 import SdkConfig from "../../SdkConfig";
-import { IConfigOptions } from "../../IConfigOptions";
+import { type IConfigOptions } from "../../IConfigOptions";
 import * as rageshake from "../../rageshake/rageshake";
 import Modal from "../../Modal";
 import InfoDialog from "../../components/views/dialogs/InfoDialog";
 import Spinner from "../../components/views/elements/Spinner";
 import { Action } from "../../dispatcher/actions";
-import { ActionPayload } from "../../dispatcher/payloads";
+import { type ActionPayload } from "../../dispatcher/payloads";
 import { showToast as showUpdateToast } from "../../toasts/UpdateToast";
-import { CheckUpdatesPayload } from "../../dispatcher/payloads/CheckUpdatesPayload";
+import { type CheckUpdatesPayload } from "../../dispatcher/payloads/CheckUpdatesPayload";
 import ToastStore from "../../stores/ToastStore";
 import GenericExpiringToast from "../../components/views/toasts/GenericExpiringToast";
 import { BreadcrumbsStore } from "../../stores/BreadcrumbsStore";
@@ -38,6 +42,7 @@ import { MatrixClientPeg } from "../../MatrixClientPeg";
 import { SeshatIndexManager } from "./SeshatIndexManager";
 import { IPCManager } from "./IPCManager";
 import { _t } from "../../languageHandler";
+import { BadgeOverlayRenderer } from "../../favicon";
 
 interface SquirrelUpdate {
     releaseNotes: string;
@@ -47,8 +52,6 @@ interface SquirrelUpdate {
 }
 
 const SSO_ID_KEY = "element-desktop-ssoid";
-
-const isMac = navigator.platform.toUpperCase().includes("MAC");
 
 function platformFriendlyName(): string {
     // used to use window.process but the same info is available here
@@ -69,13 +72,6 @@ function platformFriendlyName(): string {
     }
 }
 
-function onAction(payload: ActionPayload): void {
-    // Whitelist payload actions, no point sending most across
-    if (["call_state"].includes(payload.action)) {
-        window.electron!.send("app_onAction", payload);
-    }
-}
-
 function getUpdateCheckStatus(status: boolean | string): UpdateStatus {
     if (status === true) {
         return { status: UpdateCheckStatus.Downloading };
@@ -92,8 +88,13 @@ function getUpdateCheckStatus(status: boolean | string): UpdateStatus {
 export default class ElectronPlatform extends BasePlatform {
     private readonly ipc = new IPCManager("ipcCall", "ipcReply");
     private readonly eventIndexManager: BaseEventIndexManager = new SeshatIndexManager();
-    // this is the opaque token we pass to the HS which when we get it in our callback we can resolve to a profile
-    private readonly ssoID: string = randomString(32);
+    public readonly initialised: Promise<void>;
+    private readonly electron: Electron;
+    private protocol!: string;
+    private sessionId!: string;
+    private badgeOverlayRenderer?: BadgeOverlayRenderer;
+    private config!: IConfigOptions;
+    private supportedSettings?: Record<string, boolean>;
 
     public constructor() {
         super();
@@ -101,15 +102,15 @@ export default class ElectronPlatform extends BasePlatform {
         if (!window.electron) {
             throw new Error("Cannot instantiate ElectronPlatform, window.electron is not set");
         }
+        this.electron = window.electron;
 
-        dis.register(onAction);
         /*
             IPC Call `check_updates` returns:
             true if there is an update available
             false if there is not
             or the error if one is encountered
          */
-        window.electron.on("check_updates", (event, status) => {
+        this.electron.on("check_updates", (event, status) => {
             dis.dispatch<CheckUpdatesPayload>({
                 action: Action.CheckUpdates,
                 ...getUpdateCheckStatus(status),
@@ -118,44 +119,44 @@ export default class ElectronPlatform extends BasePlatform {
 
         // `userAccessToken` (IPC) is requested by the main process when appending authentication
         // to media downloads. A reply is sent over the same channel.
-        window.electron.on("userAccessToken", () => {
-            window.electron!.send("userAccessToken", MatrixClientPeg.get()?.getAccessToken());
+        this.electron.on("userAccessToken", () => {
+            this.electron.send("userAccessToken", MatrixClientPeg.get()?.getAccessToken());
         });
 
         // `homeserverUrl` (IPC) is requested by the main process. A reply is sent over the same channel.
-        window.electron.on("homeserverUrl", () => {
-            window.electron!.send("homeserverUrl", MatrixClientPeg.get()?.getHomeserverUrl());
+        this.electron.on("homeserverUrl", () => {
+            this.electron.send("homeserverUrl", MatrixClientPeg.get()?.getHomeserverUrl());
         });
 
         // `serverSupportedVersions` is requested by the main process when it needs to know if the
         // server supports a particular version. This is primarily used to detect authenticated media
         // support. A reply is sent over the same channel.
-        window.electron.on("serverSupportedVersions", async () => {
-            window.electron!.send("serverSupportedVersions", await MatrixClientPeg.get()?.getVersions());
+        this.electron.on("serverSupportedVersions", async () => {
+            this.electron.send("serverSupportedVersions", await MatrixClientPeg.get()?.getVersions());
         });
 
         // try to flush the rageshake logs to indexeddb before quit.
-        window.electron.on("before-quit", function () {
+        this.electron.on("before-quit", function () {
             logger.log("element-desktop closing");
             rageshake.flush();
         });
 
-        window.electron.on("update-downloaded", this.onUpdateDownloaded);
+        this.electron.on("update-downloaded", this.onUpdateDownloaded);
 
-        window.electron.on("preferences", () => {
+        this.electron.on("preferences", () => {
             dis.fire(Action.ViewUserSettings);
         });
 
-        window.electron.on("userDownloadCompleted", (ev, { id, name }) => {
+        this.electron.on("userDownloadCompleted", (ev, { id, name }) => {
             const key = `DOWNLOAD_TOAST_${id}`;
 
             const onAccept = (): void => {
-                window.electron!.send("userDownloadAction", { id, open: true });
+                this.electron.send("userDownloadAction", { id, open: true });
                 ToastStore.sharedInstance().dismissToast(key);
             };
 
             const onDismiss = (): void => {
-                window.electron!.send("userDownloadAction", { id });
+                this.electron.send("userDownloadAction", { id });
             };
 
             ToastStore.sharedInstance().addOrReplaceToast({
@@ -174,20 +175,41 @@ export default class ElectronPlatform extends BasePlatform {
             });
         });
 
-        window.electron.on("openDesktopCapturerSourcePicker", async () => {
+        this.electron.on("openDesktopCapturerSourcePicker", async () => {
             const { finished } = Modal.createDialog(DesktopCapturerSourcePicker);
             const [source] = await finished;
             // getDisplayMedia promise does not return if no dummy is passed here as source
             await this.ipc.call("callDisplayMediaCallback", source ?? { id: "", name: "", thumbnailURL: "" });
         });
 
-        void this.ipc.call("startSSOFlow", this.ssoID);
-
         BreadcrumbsStore.instance.on(UPDATE_EVENT, this.onBreadcrumbsUpdate);
+
+        this.initialised = this.initialise();
+    }
+
+    protected onAction(payload: ActionPayload): void {
+        super.onAction(payload);
+        // Whitelist payload actions, no point sending most across
+        if (["call_state"].includes(payload.action)) {
+            this.electron.send("app_onAction", payload);
+        }
+    }
+
+    private async initialise(): Promise<void> {
+        const { protocol, sessionId, config, supportedSettings, supportsBadgeOverlay } =
+            await this.electron.initialise();
+        this.protocol = protocol;
+        this.sessionId = sessionId;
+        this.config = config;
+        this.supportedSettings = supportedSettings;
+        if (supportsBadgeOverlay) {
+            this.badgeOverlayRenderer = new BadgeOverlayRenderer();
+        }
     }
 
     public async getConfig(): Promise<IConfigOptions | undefined> {
-        return this.ipc.call("getConfig");
+        await this.initialised;
+        return this.config;
     }
 
     private onBreadcrumbsUpdate = (): void => {
@@ -233,8 +255,42 @@ export default class ElectronPlatform extends BasePlatform {
     public setNotificationCount(count: number): void {
         if (this.notificationCount === count) return;
         super.setNotificationCount(count);
+        if (this.badgeOverlayRenderer) {
+            this.badgeOverlayRenderer
+                .render(count)
+                .then((buffer) => {
+                    this.electron.send("setBadgeCount", count, buffer);
+                })
+                .catch((ex) => {
+                    logger.warn("Unable to generate badge overlay", ex);
+                });
+        } else {
+            this.electron.send("setBadgeCount", count);
+        }
+    }
 
-        window.electron!.send("setBadgeCount", count);
+    public setErrorStatus(errorDidOccur: boolean): void {
+        if (!this.badgeOverlayRenderer) {
+            super.setErrorStatus(errorDidOccur);
+            return;
+        }
+        // Check before calling super so we don't override the previous state.
+        if (this.errorDidOccur !== errorDidOccur) {
+            super.setErrorStatus(errorDidOccur);
+            let promise: Promise<ArrayBuffer | null>;
+            if (errorDidOccur) {
+                promise = this.badgeOverlayRenderer.render(this.notificationCount || "×", "#f00");
+            } else {
+                promise = this.badgeOverlayRenderer.render(this.notificationCount);
+            }
+            promise
+                .then((buffer) => {
+                    this.electron.send("setBadgeCount", this.notificationCount, buffer, errorDidOccur);
+                })
+                .catch((ex) => {
+                    logger.warn("Unable to generate badge overlay", ex);
+                });
+        }
     }
 
     public supportsNotifications(): boolean {
@@ -274,7 +330,7 @@ export default class ElectronPlatform extends BasePlatform {
     }
 
     public loudNotification(ev: MatrixEvent, room: Room): void {
-        window.electron!.send("loudNotification");
+        this.electron.send("loudNotification");
     }
 
     public needsUrlTooltips(): boolean {
@@ -286,21 +342,16 @@ export default class ElectronPlatform extends BasePlatform {
     }
 
     public supportsSetting(settingName?: string): boolean {
-        switch (settingName) {
-            case "Electron.showTrayIcon": // Things other than Mac support tray icons
-            case "Electron.alwaysShowMenuBar": // This isn't relevant on Mac as Menu bars don't live in the app window
-                return !isMac;
-            default:
-                return true;
-        }
+        if (settingName === undefined) return true;
+        return this.supportedSettings?.[settingName] === true;
     }
 
     public getSettingValue(settingName: string): Promise<any> {
-        return this.ipc.call("getSettingValue", settingName);
+        return this.electron.getSettingValue(settingName);
     }
 
     public setSettingValue(settingName: string, value: any): Promise<void> {
-        return this.ipc.call("setSettingValue", settingName, value);
+        return this.electron.setSettingValue(settingName, value);
     }
 
     public async canSelfUpdate(): Promise<boolean> {
@@ -310,14 +361,14 @@ export default class ElectronPlatform extends BasePlatform {
 
     public startUpdateCheck(): void {
         super.startUpdateCheck();
-        window.electron!.send("check_updates");
+        this.electron.send("check_updates");
     }
 
     public installUpdate(): void {
         // IPC to the main process to install the update, since quitAndInstall
         // doesn't fire the before-quit event so the main process needs to know
         // it should exit.
-        window.electron!.send("install_update");
+        this.electron.send("install_update");
     }
 
     public getDefaultDeviceDisplayName(): string {
@@ -386,7 +437,7 @@ export default class ElectronPlatform extends BasePlatform {
     public getSSOCallbackUrl(fragmentAfterLogin?: string): URL {
         const url = super.getSSOCallbackUrl(fragmentAfterLogin);
         url.protocol = "element";
-        url.searchParams.set(SSO_ID_KEY, this.ssoID);
+        url.searchParams.set(SSO_ID_KEY, this.sessionId);
         return url;
     }
 
@@ -464,7 +515,7 @@ export default class ElectronPlatform extends BasePlatform {
     }
 
     public getOidcClientState(): string {
-        return `:${SSO_ID_KEY}:${this.ssoID}`;
+        return `:${SSO_ID_KEY}:${this.sessionId}`;
     }
 
     /**
@@ -472,9 +523,9 @@ export default class ElectronPlatform extends BasePlatform {
      */
     public getOidcCallbackUrl(): URL {
         const url = super.getOidcCallbackUrl();
-        url.protocol = "io.element.desktop";
+        url.protocol = this.protocol;
         // Trim the double slash into a single slash to comply with https://datatracker.ietf.org/doc/html/rfc8252#section-7.1
-        if (url.href.startsWith(`${url.protocol}://`)) {
+        if (url.href.startsWith(`${url.protocol}//`)) {
             url.href = url.href.replace("://", ":/");
         }
         return url;

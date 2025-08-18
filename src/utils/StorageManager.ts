@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2019-2021 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -92,8 +92,7 @@ export async function checkConsistency(): Promise<{
     if (dataInLocalStorage && cryptoInited && !dataInCryptoStore) {
         healthy = false;
         error(
-            "Data exists in local storage and crypto is marked as initialised " +
-                " but no data found in crypto store. " +
+            "Data exists in local storage and crypto is marked as initialised but no data found in crypto store. " +
                 "IndexedDB storage has likely been evicted by the browser!",
         );
     }

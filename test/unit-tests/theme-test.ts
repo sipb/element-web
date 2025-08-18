@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -135,6 +135,54 @@ describe("theme", () => {
             expect(spy.mock.calls[0][0].textContent).toMatchSnapshot();
             spy.mockRestore();
         });
+
+        it("should handle 4-char rgba hex strings", async () => {
+            jest.spyOn(SettingsStore, "getValue").mockReturnValue([
+                {
+                    name: "blue",
+                    colors: {
+                        "sidebar-color": "#abcd",
+                    },
+                },
+            ]);
+
+            const spy = jest.fn();
+            jest.spyOn(document.body, "style", "get").mockReturnValue({
+                setProperty: spy,
+            } as any);
+            await new Promise((resolve) => {
+                setTheme("custom-blue").then(resolve);
+                lightCustomTheme.onload!({} as Event);
+            });
+            expect(spy).toHaveBeenCalledWith("--sidebar-color", "#abcd");
+            expect(spy).toHaveBeenCalledWith("--sidebar-color-0pct", "#aabbcc00");
+            expect(spy).toHaveBeenCalledWith("--sidebar-color-15pct", "#aabbcc21");
+            expect(spy).toHaveBeenCalledWith("--sidebar-color-50pct", "#aabbcc6f");
+        });
+
+        it("should handle 6-char rgb hex strings", async () => {
+            jest.spyOn(SettingsStore, "getValue").mockReturnValue([
+                {
+                    name: "blue",
+                    colors: {
+                        "sidebar-color": "#abcdef",
+                    },
+                },
+            ]);
+
+            const spy = jest.fn();
+            jest.spyOn(document.body, "style", "get").mockReturnValue({
+                setProperty: spy,
+            } as any);
+            await new Promise((resolve) => {
+                setTheme("custom-blue").then(resolve);
+                lightCustomTheme.onload!({} as Event);
+            });
+            expect(spy).toHaveBeenCalledWith("--sidebar-color", "#abcdef");
+            expect(spy).toHaveBeenCalledWith("--sidebar-color-0pct", "#abcdef00");
+            expect(spy).toHaveBeenCalledWith("--sidebar-color-15pct", "#abcdef26");
+            expect(spy).toHaveBeenCalledWith("--sidebar-color-50pct", "#abcdef80");
+        });
     });
 
     describe("enumerateThemes", () => {
@@ -149,7 +197,7 @@ describe("theme", () => {
         });
 
         it("should be robust to malformed custom_themes values", () => {
-            jest.spyOn(SettingsStore, "getValue").mockReturnValue([23]);
+            jest.spyOn(SettingsStore, "getValue").mockReturnValue([23] as any);
             expect(enumerateThemes()).toEqual({
                 "light": "Light",
                 "light-high-contrast": "Light high contrast",

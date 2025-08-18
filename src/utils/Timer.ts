@@ -2,11 +2,9 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2018-2021 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
-
-import { IDeferred, defer } from "matrix-js-sdk/src/utils";
 
 /**
 A countdown timer, exposing a promise api.
@@ -22,7 +20,7 @@ a new one through `clone()` or `cloneIfRun()`.
 export default class Timer {
     private timerHandle?: number;
     private startTs?: number;
-    private deferred!: IDeferred<void>;
+    private deferred!: PromiseWithResolvers<void>;
 
     public constructor(private timeout: number) {
         this.setNotStarted();
@@ -31,7 +29,7 @@ export default class Timer {
     private setNotStarted(): void {
         this.timerHandle = undefined;
         this.startTs = undefined;
-        this.deferred = defer();
+        this.deferred = Promise.withResolvers();
         this.deferred.promise = this.deferred.promise.finally(() => {
             this.timerHandle = undefined;
         });

@@ -2,12 +2,11 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import { MatrixClient, IPushRule, PushRuleAction, PushRuleKind } from "matrix-js-sdk/src/matrix";
-import { PushProcessor } from "matrix-js-sdk/src/pushprocessor";
+import { type MatrixClient, type IPushRule, type PushRuleAction, type PushRuleKind } from "matrix-js-sdk/src/matrix";
 
 /**
  * Sets the actions for a given push rule id and kind
@@ -51,10 +50,8 @@ export const updateExistingPushRulesWithActions = async (
     ruleIds?: IPushRule["rule_id"][],
     actions?: PushRuleAction[],
 ): Promise<void> => {
-    const pushProcessor = new PushProcessor(matrixClient);
-
     const rules: PushRuleAndKind[] | undefined = ruleIds
-        ?.map((ruleId) => pushProcessor.getPushRuleAndKindById(ruleId))
+        ?.map((ruleId) => matrixClient.pushProcessor.getPushRuleAndKindById(ruleId))
         .filter((n: PushRuleAndKind | null): n is PushRuleAndKind => Boolean(n));
 
     if (!rules?.length) {

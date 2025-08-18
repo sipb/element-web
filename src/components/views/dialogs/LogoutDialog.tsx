@@ -3,19 +3,21 @@ Copyright 2024 New Vector Ltd.
 Copyright 2020-2022 The Matrix.org Foundation C.I.C.
 Copyright 2018, 2019 New Vector Ltd
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import React, { lazy } from "react";
 import { logger } from "matrix-js-sdk/src/logger";
-import { MatrixClient } from "matrix-js-sdk/src/matrix";
+import { type MatrixClient } from "matrix-js-sdk/src/matrix";
 
 import Modal from "../../../Modal";
 import dis from "../../../dispatcher/dispatcher";
+import { type OpenToTabPayload } from "../../../dispatcher/payloads/OpenToTabPayload";
+import { Action } from "../../../dispatcher/actions";
+import { UserTab } from "../../../components/views/dialogs/UserTab";
 import { _t } from "../../../languageHandler";
 import { MatrixClientPeg } from "../../../MatrixClientPeg";
-import RestoreKeyBackupDialog from "./security/RestoreKeyBackupDialog";
 import QuestionDialog from "./QuestionDialog";
 import BaseDialog from "./BaseDialog";
 import Spinner from "../elements/Spinner";
@@ -37,6 +39,9 @@ enum BackupStatus {
 
     /** there is a backup on the server but we are not backing up to it */
     SERVER_BACKUP_BUT_DISABLED,
+
+    /** Key backup is set up but recovery (4s) is not */
+    BACKUP_NO_RECOVERY,
 
     /** backup is not set up locally and there is no backup on the server */
     NO_BACKUP,
@@ -104,7 +109,11 @@ export default class LogoutDialog extends React.Component<IProps, IState> {
         }
 
         if ((await crypto.getActiveSessionBackupVersion()) !== null) {
-            this.setState({ backupStatus: BackupStatus.BACKUP_ACTIVE });
+            if (await crypto.isSecretStorageReady()) {
+                this.setState({ backupStatus: BackupStatus.BACKUP_ACTIVE });
+            } else {
+                this.setState({ backupStatus: BackupStatus.BACKUP_NO_RECOVERY });
+            }
             return;
         }
 
@@ -131,26 +140,12 @@ export default class LogoutDialog extends React.Component<IProps, IState> {
     };
 
     private onSetRecoveryMethodClick = (): void => {
-        if (this.state.backupStatus === BackupStatus.SERVER_BACKUP_BUT_DISABLED) {
-            // A key backup exists for this account, but the creating device is not
-            // verified, so restore the backup which will give us the keys from it and
-            // allow us to trust it (ie. upload keys to it)
-            Modal.createDialog(
-                RestoreKeyBackupDialog,
-                undefined,
-                undefined,
-                /* priority = */ false,
-                /* static = */ true,
-            );
-        } else {
-            Modal.createDialog(
-                lazy(() => import("../../../async-components/views/dialogs/security/CreateKeyBackupDialog")),
-                undefined,
-                undefined,
-                /* priority = */ false,
-                /* static = */ true,
-            );
-        }
+        // Open the user settings dialog to the encryption tab and start the flow to reset encryption
+        const payload: OpenToTabPayload = {
+            action: Action.ViewUserSettings,
+            initialTabId: UserTab.Encryption,
+        };
+        dis.dispatch(payload);
 
         // close dialog
         this.props.onFinished(true);
@@ -164,13 +159,17 @@ export default class LogoutDialog extends React.Component<IProps, IState> {
     };
 
     /**
-     * Show a dialog prompting the user to set up key backup.
+     * Show a dialog prompting the user to set up their recovery method.
      *
-     * Either there is no backup at all ({@link BackupStatus.NO_BACKUP}), there is a backup on the server but
-     * we are not connected to it ({@link BackupStatus.SERVER_BACKUP_BUT_DISABLED}), or we were unable to pull the
-     * backup data ({@link BackupStatus.ERROR}). In all three cases, we should prompt the user to set up key backup.
+     * Either:
+     *  * There is no backup at all ({@link BackupStatus.NO_BACKUP})
+     *  * There is a backup set up but recovery (4s) is not ({@link BackupStatus.BACKUP_NO_RECOVERY})
+     *  * There is a backup on the server but we are not connected to it ({@link BackupStatus.SERVER_BACKUP_BUT_DISABLED})
+     *  * We were unable to pull the backup data ({@link BackupStatus.ERROR}).
+     *
+     * In all four cases, we should prompt the user to set up a method of recovery.
      */
-    private renderSetupBackupDialog(): React.ReactNode {
+    private renderSetupRecoveryMethod(): React.ReactNode {
         const description = (
             <div>
                 <p>{_t("auth|logout_dialog|setup_secure_backup_description_1")}</p>
@@ -179,22 +178,13 @@ export default class LogoutDialog extends React.Component<IProps, IState> {
             </div>
         );
 
-        let setupButtonCaption;
-        if (this.state.backupStatus === BackupStatus.SERVER_BACKUP_BUT_DISABLED) {
-            setupButtonCaption = _t("settings|security|key_backup_connect");
-        } else {
-            // if there's an error fetching the backup info, we'll just assume there's
-            // no backup for the purpose of the button caption
-            setupButtonCaption = _t("auth|logout_dialog|use_key_backup");
-        }
-
         const dialogContent = (
             <div>
                 <div className="mx_Dialog_content" id="mx_Dialog_content">
                     {description}
                 </div>
                 <DialogButtons
-                    primaryButton={setupButtonCaption}
+                    primaryButton={_t("common|go_to_settings")}
                     hasCancel={false}
                     onPrimaryButtonClick={this.onSetRecoveryMethodClick}
                     focus={true}
@@ -254,7 +244,8 @@ export default class LogoutDialog extends React.Component<IProps, IState> {
             case BackupStatus.NO_BACKUP:
             case BackupStatus.SERVER_BACKUP_BUT_DISABLED:
             case BackupStatus.ERROR:
-                return this.renderSetupBackupDialog();
+            case BackupStatus.BACKUP_NO_RECOVERY:
+                return this.renderSetupRecoveryMethod();
         }
     }
 }

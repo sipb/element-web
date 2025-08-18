@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2020 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -78,9 +78,6 @@ export default class CompleteSecurity extends React.Component<IProps, IState> {
         } else if (phase === Phase.Busy) {
             icon = <span className="mx_CompleteSecurity_headerIcon mx_E2EIcon_warning" />;
             title = _t("encryption|verification|after_new_login|verify_this_device");
-        } else if (phase === Phase.ConfirmReset) {
-            icon = <span className="mx_CompleteSecurity_headerIcon mx_E2EIcon_warning" />;
-            title = _t("encryption|verification|after_new_login|reset_confirmation");
         } else if (phase === Phase.Finished) {
             // SetupEncryptionBody will take care of calling onFinished, we don't need to do anything
         } else {
@@ -90,7 +87,7 @@ export default class CompleteSecurity extends React.Component<IProps, IState> {
         const forceVerification = SdkConfig.get("force_verification");
 
         let skipButton;
-        if (!forceVerification && (phase === Phase.Intro || phase === Phase.ConfirmReset)) {
+        if (!forceVerification && phase === Phase.Intro) {
             skipButton = (
                 <AccessibleButton
                     onClick={this.onSkipClick}

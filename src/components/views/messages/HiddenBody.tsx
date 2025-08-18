@@ -2,19 +2,14 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React from "react";
-import { MatrixEvent } from "matrix-js-sdk/src/matrix";
+import React, { type JSX } from "react";
 
 import { _t } from "../../../languageHandler";
-import { IBodyProps } from "./IBodyProps";
-
-interface IProps {
-    mxEvent: MatrixEvent;
-}
+import { type IBodyProps } from "./IBodyProps";
 
 /**
  * A message hidden from the user pending moderation.
@@ -22,7 +17,7 @@ interface IProps {
  * Note: This component must not be used when the user is the author of the message
  * or has a sufficient powerlevel to see the message.
  */
-const HiddenBody = React.forwardRef<any, IProps | IBodyProps>(({ mxEvent }, ref) => {
+const HiddenBody = ({ mxEvent, ref }: IBodyProps): JSX.Element => {
     let text;
     const visibility = mxEvent.messageVisibility();
     switch (visibility.visible) {
@@ -42,6 +37,6 @@ const HiddenBody = React.forwardRef<any, IProps | IBodyProps>(({ mxEvent }, ref)
             {text}
         </span>
     );
-});
+};
 
 export default HiddenBody;

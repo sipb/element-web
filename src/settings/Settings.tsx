@@ -1,16 +1,18 @@
 /*
-Copyright 2024 New Vector Ltd.
+Copyright 2024, 2025 New Vector Ltd.
 Copyright 2018-2024 The Matrix.org Foundation C.I.C.
 Copyright 2017 Travis Ralston
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import { UNSTABLE_MSC4133_EXTENDED_PROFILES } from "matrix-js-sdk/src/matrix";
 
-import { _t, _td, TranslationKey } from "../languageHandler";
+import { type MediaPreviewConfig } from "../@types/media_preview.ts";
+// Import i18n.tsx instead of languageHandler to avoid circular deps
+import { _t, _td, type TranslationKey } from "../shared-components/utils/i18n";
 import DeviceIsolationModeController from "./controllers/DeviceIsolationModeController.ts";
 import {
     NotificationBodyEnabledController,
@@ -21,7 +23,7 @@ import ReloadOnChangeController from "./controllers/ReloadOnChangeController";
 import FontSizeController from "./controllers/FontSizeController";
 import SystemFontController from "./controllers/SystemFontController";
 import { SettingLevel } from "./SettingLevel";
-import SettingController from "./controllers/SettingController";
+import type SettingController from "./controllers/SettingController";
 import { IS_MAC } from "../Keyboard";
 import UIFeatureController from "./controllers/UIFeatureController";
 import { UIFeature } from "./UIFeature";
@@ -35,9 +37,19 @@ import SlidingSyncController from "./controllers/SlidingSyncController";
 import { FontWatcher } from "./watchers/FontWatcher";
 import ServerSupportUnstableFeatureController from "./controllers/ServerSupportUnstableFeatureController";
 import { WatchManager } from "./WatchManager";
-import { CustomTheme } from "../theme";
+import { type CustomTheme } from "../theme";
 import AnalyticsController from "./controllers/AnalyticsController";
 import FallbackIceServerController from "./controllers/FallbackIceServerController";
+import { type IRightPanelForRoomStored } from "../stores/right-panel/RightPanelStoreIPanelState.ts";
+import { type ILayoutSettings } from "../stores/widgets/WidgetLayoutStore.ts";
+import { type ReleaseAnnouncementData } from "../stores/ReleaseAnnouncementStore.ts";
+import { type Json, type JsonValue } from "../@types/json.ts";
+import { type RecentEmojiData } from "../emojipicker/recent.ts";
+import { type Assignable } from "../@types/common.ts";
+import { SortingAlgorithm } from "../stores/room-list-v3/skip-list/sorters/index.ts";
+import MediaPreviewConfigController from "./controllers/MediaPreviewConfigController.ts";
+import InviteRulesConfigController from "./controllers/InviteRulesConfigController.ts";
+import { type ComputedInviteConfig } from "../@types/invite-rules.ts";
 
 export const defaultWatchManager = new WatchManager();
 
@@ -86,7 +98,6 @@ export enum LabGroup {
 
 export enum Features {
     NotificationSettings2 = "feature_notification_settings2",
-    OidcNativeFlow = "feature_oidc_native_flow",
     ReleaseAnnouncement = "feature_release_announcement",
 }
 
@@ -107,15 +118,7 @@ export const labGroupNames: Record<LabGroup, TranslationKey> = {
     [LabGroup.Ui]: _td("labs|group_ui"),
 };
 
-export type SettingValueType =
-    | boolean
-    | number
-    | string
-    | number[]
-    | string[]
-    | Record<string, unknown>
-    | Record<string, unknown>[]
-    | null;
+export type SettingValueType = Json | JsonValue | Record<string, unknown> | Record<string, unknown>[];
 
 export interface IBaseSetting<T extends SettingValueType = SettingValueType> {
     isFeature?: false | undefined;
@@ -165,12 +168,17 @@ export interface IBaseSetting<T extends SettingValueType = SettingValueType> {
         image?: string; // require(...)
         feedbackSubheading?: TranslationKey;
         feedbackLabel?: string;
-        extraSettings?: string[];
+        extraSettings?: BooleanSettingKey[];
         requiresRefresh?: boolean;
     };
 
     // Whether the setting should have a warning sign in the microcopy
     shouldWarn?: boolean;
+
+    /**
+     * Whether the setting should be exported in a rageshake report.
+     */
+    shouldExportToRageshake?: boolean;
 }
 
 export interface IFeature extends Omit<IBaseSetting<boolean>, "isFeature"> {
@@ -182,7 +190,186 @@ export interface IFeature extends Omit<IBaseSetting<boolean>, "isFeature"> {
 // Type using I-identifier for backwards compatibility from before it became a discriminated union
 export type ISetting = IBaseSetting | IFeature;
 
-export const SETTINGS: { [setting: string]: ISetting } = {
+export interface Settings {
+    [settingName: `UIFeature.${string}`]: IBaseSetting<boolean>;
+
+    // We can't use the following type because of `feature_sliding_sync_proxy_url` & `feature_hidebold` being in the namespace incorrectly
+    // [settingName: `feature_${string}`]: IFeature;
+    "feature_video_rooms": IFeature;
+    [Features.NotificationSettings2]: IFeature;
+    [Features.ReleaseAnnouncement]: IFeature;
+    "feature_msc3531_hide_messages_pending_moderation": IFeature;
+    "feature_report_to_moderators": IFeature;
+    "feature_latex_maths": IFeature;
+    "feature_wysiwyg_composer": IFeature;
+    "feature_mjolnir": IFeature;
+    "feature_custom_themes": IFeature;
+    "feature_exclude_insecure_devices": IFeature;
+    "feature_share_history_on_invite": IFeature;
+    "feature_html_topic": IFeature;
+    "feature_bridge_state": IFeature;
+    "feature_jump_to_date": IFeature;
+    "feature_sliding_sync": IBaseSetting<boolean>;
+    "feature_simplified_sliding_sync": IFeature;
+    "feature_element_call_video_rooms": IFeature;
+    "feature_group_calls": IFeature;
+    "feature_disable_call_per_sender_encryption": IFeature;
+    "feature_allow_screen_share_only_mode": IFeature;
+    "feature_location_share_live": IFeature;
+    "feature_dynamic_room_predecessors": IFeature;
+    "feature_render_reaction_images": IFeature;
+    "feature_new_room_list": IFeature;
+    "feature_ask_to_join": IFeature;
+    "feature_notifications": IFeature;
+    // These are in the feature namespace but aren't actually features
+    "feature_hidebold": IBaseSetting<boolean>;
+
+    "useOnlyCurrentProfiles": IBaseSetting<boolean>;
+    "mjolnirRooms": IBaseSetting<string[]>;
+    "mjolnirPersonalRoom": IBaseSetting<string | null>;
+    "RoomList.backgroundImage": IBaseSetting<string | null>;
+    "sendReadReceipts": IBaseSetting<boolean>;
+    "baseFontSize": IBaseSetting<"" | number>;
+    "baseFontSizeV2": IBaseSetting<"" | number>;
+    "fontSizeDelta": IBaseSetting<number>;
+    "useCustomFontSize": IBaseSetting<boolean>;
+    "MessageComposerInput.suggestEmoji": IBaseSetting<boolean>;
+    "MessageComposerInput.showStickersButton": IBaseSetting<boolean>;
+    "MessageComposerInput.showPollsButton": IBaseSetting<boolean>;
+    "MessageComposerInput.insertTrailingColon": IBaseSetting<boolean>;
+    "Notifications.alwaysShowBadgeCounts": IBaseSetting<boolean>;
+    "Notifications.showbold": IBaseSetting<boolean>;
+    "Notifications.tac_only_notifications": IBaseSetting<boolean>;
+    "useCompactLayout": IBaseSetting<boolean>;
+    "showRedactions": IBaseSetting<boolean>;
+    "showJoinLeaves": IBaseSetting<boolean>;
+    "showAvatarChanges": IBaseSetting<boolean>;
+    "showDisplaynameChanges": IBaseSetting<boolean>;
+    "showReadReceipts": IBaseSetting<boolean>;
+    "showTwelveHourTimestamps": IBaseSetting<boolean>;
+    "alwaysShowTimestamps": IBaseSetting<boolean>;
+    "userTimezone": IBaseSetting<string>;
+    "userTimezonePublish": IBaseSetting<boolean>;
+    "autoplayGifs": IBaseSetting<boolean>;
+    "autoplayVideo": IBaseSetting<boolean>;
+    "enableSyntaxHighlightLanguageDetection": IBaseSetting<boolean>;
+    "expandCodeByDefault": IBaseSetting<boolean>;
+    "showCodeLineNumbers": IBaseSetting<boolean>;
+    "scrollToBottomOnMessageSent": IBaseSetting<boolean>;
+    "Pill.shouldShowPillAvatar": IBaseSetting<boolean>;
+    "TextualBody.enableBigEmoji": IBaseSetting<boolean>;
+    "MessageComposerInput.isRichTextEnabled": IBaseSetting<boolean>;
+    "MessageComposer.showFormatting": IBaseSetting<boolean>;
+    "sendTypingNotifications": IBaseSetting<boolean>;
+    "showTypingNotifications": IBaseSetting<boolean>;
+    "ctrlFForSearch": IBaseSetting<boolean>;
+    "MessageComposerInput.ctrlEnterToSend": IBaseSetting<boolean>;
+    "MessageComposerInput.surroundWith": IBaseSetting<boolean>;
+    "MessageComposerInput.autoReplaceEmoji": IBaseSetting<boolean>;
+    "MessageComposerInput.useMarkdown": IBaseSetting<boolean>;
+    "VideoView.flipVideoHorizontally": IBaseSetting<boolean>;
+    "theme": IBaseSetting<string>;
+    "custom_themes": IBaseSetting<CustomTheme[]>;
+    "use_system_theme": IBaseSetting<boolean>;
+    "useBundledEmojiFont": IBaseSetting<boolean>;
+    "useSystemFont": IBaseSetting<boolean>;
+    "systemFont": IBaseSetting<string>;
+    "webRtcAllowPeerToPeer": IBaseSetting<boolean>;
+    "webrtc_audiooutput": IBaseSetting<string>;
+    "webrtc_audioinput": IBaseSetting<string>;
+    "webrtc_videoinput": IBaseSetting<string>;
+    "webrtc_audio_autoGainControl": IBaseSetting<boolean>;
+    "webrtc_audio_echoCancellation": IBaseSetting<boolean>;
+    "webrtc_audio_noiseSuppression": IBaseSetting<boolean>;
+    "language": IBaseSetting<string>;
+    "breadcrumb_rooms": IBaseSetting<string[]>;
+    "recent_emoji": IBaseSetting<RecentEmojiData>;
+    "showMediaEventIds": IBaseSetting<{ [eventId: string]: boolean }>;
+    "SpotlightSearch.recentSearches": IBaseSetting<string[]>;
+    "SpotlightSearch.showNsfwPublicRooms": IBaseSetting<boolean>;
+    "room_directory_servers": IBaseSetting<string[]>;
+    "integrationProvisioning": IBaseSetting<boolean>;
+    "allowedWidgets": IBaseSetting<{ [eventId: string]: boolean }>;
+    "analyticsOptIn": IBaseSetting<boolean>;
+    "pseudonymousAnalyticsOptIn": IBaseSetting<boolean | null>;
+    "deviceClientInformationOptIn": IBaseSetting<boolean>;
+    "Registration.mobileRegistrationHelper": IBaseSetting<boolean>;
+    "autocompleteDelay": IBaseSetting<number>;
+    "readMarkerInViewThresholdMs": IBaseSetting<number>;
+    "readMarkerOutOfViewThresholdMs": IBaseSetting<number>;
+    "blacklistUnverifiedDevices": IBaseSetting<boolean>;
+    "urlPreviewsEnabled": IBaseSetting<boolean>;
+    "urlPreviewsEnabled_e2ee": IBaseSetting<boolean>;
+    "notificationsEnabled": IBaseSetting<boolean>;
+    "deviceNotificationsEnabled": IBaseSetting<boolean>;
+    "notificationSound": IBaseSetting<
+        | {
+              name: string;
+              type: string;
+              size: number;
+              url: string;
+          }
+        | false
+    >;
+    "notificationBodyEnabled": IBaseSetting<boolean>;
+    "audioNotificationsEnabled": IBaseSetting<boolean>;
+    "enableWidgetScreenshots": IBaseSetting<boolean>;
+    "promptBeforeInviteUnknownUsers": IBaseSetting<boolean>;
+    "widgetOpenIDPermissions": IBaseSetting<{
+        allow?: string[];
+        deny?: string[];
+    }>;
+    "breadcrumbs": IBaseSetting<boolean>;
+    "showHiddenEventsInTimeline": IBaseSetting<boolean>;
+    "lowBandwidth": IBaseSetting<boolean>;
+    "fallbackICEServerAllowed": IBaseSetting<boolean | null>;
+    "RoomList.preferredSorting": IBaseSetting<SortingAlgorithm>;
+    "RoomList.showMessagePreview": IBaseSetting<boolean>;
+    "RightPanel.phasesGlobal": IBaseSetting<IRightPanelForRoomStored | null>;
+    "RightPanel.phases": IBaseSetting<IRightPanelForRoomStored | null>;
+    "enableEventIndexing": IBaseSetting<boolean>;
+    "crawlerSleepTime": IBaseSetting<number>;
+    "showCallButtonsInComposer": IBaseSetting<boolean>;
+    "ircDisplayNameWidth": IBaseSetting<number>;
+    "layout": IBaseSetting<Layout>;
+    "Images.size": IBaseSetting<ImageSize>;
+    "showChatEffects": IBaseSetting<boolean>;
+    "Performance.addSendMessageTimingMetadata": IBaseSetting<boolean>;
+    "Widgets.pinned": IBaseSetting<{ [widgetId: string]: boolean }>;
+    "Widgets.layout": IBaseSetting<ILayoutSettings | null>;
+    "Spaces.allRoomsInHome": IBaseSetting<boolean>;
+    "Spaces.enabledMetaSpaces": IBaseSetting<Partial<Record<MetaSpace, boolean>>>;
+    "Spaces.showPeopleInSpace": IBaseSetting<boolean>;
+    "developerMode": IBaseSetting<boolean>;
+    "automaticErrorReporting": IBaseSetting<boolean>;
+    "automaticDecryptionErrorReporting": IBaseSetting<boolean>;
+    "automaticKeyBackNotEnabledReporting": IBaseSetting<boolean>;
+    "debug_scroll_panel": IBaseSetting<boolean>;
+    "debug_timeline_panel": IBaseSetting<boolean>;
+    "debug_registration": IBaseSetting<boolean>;
+    "debug_animation": IBaseSetting<boolean>;
+    "debug_legacy_call_handler": IBaseSetting<boolean>;
+    "audioInputMuted": IBaseSetting<boolean>;
+    "videoInputMuted": IBaseSetting<boolean>;
+    "activeCallRoomIds": IBaseSetting<string[]>;
+    "releaseAnnouncementData": IBaseSetting<ReleaseAnnouncementData>;
+    "Electron.autoLaunch": IBaseSetting<boolean>;
+    "Electron.warnBeforeExit": IBaseSetting<boolean>;
+    "Electron.alwaysShowMenuBar": IBaseSetting<boolean>;
+    "Electron.showTrayIcon": IBaseSetting<boolean>;
+    "Electron.enableHardwareAcceleration": IBaseSetting<boolean>;
+    "Electron.enableContentProtection": IBaseSetting<boolean>;
+    "mediaPreviewConfig": IBaseSetting<MediaPreviewConfig>;
+    "inviteRules": IBaseSetting<ComputedInviteConfig>;
+    "Developer.elementCallUrl": IBaseSetting<string>;
+}
+
+export type SettingKey = keyof Settings;
+export type FeatureSettingKey = Assignable<Settings, IFeature>;
+export type BooleanSettingKey = Assignable<Settings, IBaseSetting<boolean>> | FeatureSettingKey;
+export type StringSettingKey = Assignable<Settings, IBaseSetting<string>>;
+
+export const SETTINGS: Settings = {
     "feature_video_rooms": {
         isFeature: true,
         labsGroup: LabGroup.VoiceAndVideo,
@@ -252,6 +439,18 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         supportedLevelsAreOrdered: true,
         default: false,
     },
+    "mediaPreviewConfig": {
+        controller: new MediaPreviewConfigController(),
+        supportedLevels: LEVELS_ROOM_SETTINGS,
+        default: MediaPreviewConfigController.default,
+    },
+    "inviteRules": {
+        controller: new InviteRulesConfigController(),
+        supportedLevels: [SettingLevel.ACCOUNT],
+        default: InviteRulesConfigController.default,
+        // Contains server names
+        shouldExportToRageshake: false,
+    },
     "feature_report_to_moderators": {
         isFeature: true,
         labsGroup: LabGroup.Moderation,
@@ -305,6 +504,29 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         supportedLevelsAreOrdered: true,
         default: false,
     },
+    "feature_share_history_on_invite": {
+        isFeature: true,
+        labsGroup: LabGroup.Encryption,
+        displayName: _td("labs|share_history_on_invite"),
+        description: () => (
+            <>
+                {_t("labs|share_history_on_invite_description")}
+                <div className="mx_SettingsFlag_microcopy">
+                    {_t(
+                        "settings|warning",
+                        {},
+                        {
+                            w: (sub) => <span className="mx_SettingsTab_microcopy_warning">{sub}</span>,
+                            description: _t("labs|share_history_on_invite_warning"),
+                        },
+                    )}
+                </div>
+            </>
+        ),
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
+        supportedLevelsAreOrdered: true,
+        default: false,
+    },
     "useOnlyCurrentProfiles": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         displayName: _td("settings|disable_historical_profile"),
@@ -313,10 +535,14 @@ export const SETTINGS: { [setting: string]: ISetting } = {
     "mjolnirRooms": {
         supportedLevels: [SettingLevel.ACCOUNT],
         default: [],
+        // Contains room IDs
+        shouldExportToRageshake: false,
     },
     "mjolnirPersonalRoom": {
         supportedLevels: [SettingLevel.ACCOUNT],
         default: null,
+        // Contains room ID
+        shouldExportToRageshake: false,
     },
     "feature_html_topic": {
         isFeature: true,
@@ -366,7 +592,14 @@ export const SETTINGS: { [setting: string]: ISetting } = {
             true,
         ),
     },
+    // legacy sliding sync flag: no longer works, will error for anyone who's still using it
     "feature_sliding_sync": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
+        supportedLevelsAreOrdered: true,
+        shouldWarn: true,
+        default: false,
+    },
+    "feature_simplified_sliding_sync": {
         isFeature: true,
         labsGroup: LabGroup.Developer,
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
@@ -376,11 +609,6 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         shouldWarn: true,
         default: false,
         controller: new SlidingSyncController(),
-    },
-    "feature_sliding_sync_proxy_url": {
-        // This is not a distinct feature, it is a legacy setting for feature_sliding_sync above
-        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
-        default: "",
     },
     "feature_element_call_video_rooms": {
         isFeature: true,
@@ -438,15 +666,6 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         shouldWarn: true,
         default: false,
     },
-    [Features.OidcNativeFlow]: {
-        isFeature: true,
-        labsGroup: LabGroup.Developer,
-        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
-        supportedLevelsAreOrdered: true,
-        displayName: _td("labs|oidc_native_flow"),
-        description: _td("labs|oidc_native_flow_description"),
-        default: false,
-    },
     /**
      * @deprecated in favor of {@link fontSizeDelta}
      */
@@ -464,6 +683,15 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
         supportedLevelsAreOrdered: true,
         default: false,
+    },
+    "feature_new_room_list": {
+        supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG_PRIORITISED,
+        labsGroup: LabGroup.Ui,
+        displayName: _td("labs|new_room_list"),
+        description: _td("labs|under_active_development"),
+        isFeature: true,
+        default: false,
+        controller: new ReloadOnChangeController(),
     },
     /**
      * With the transition to Compound we are moving to a base font size
@@ -605,6 +833,8 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
         displayName: _td("settings|preferences|user_timezone"),
         default: "",
+        // Location leak
+        shouldExportToRageshake: false,
     },
     "userTimezonePublish": {
         // This is per-device so you can avoid having devices overwrite each other.
@@ -711,7 +941,7 @@ export const SETTINGS: { [setting: string]: ISetting } = {
     "VideoView.flipVideoHorizontally": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         displayName: _td("settings|voip|mirror_local_feed"),
-        default: false,
+        default: true,
     },
     "theme": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
@@ -720,7 +950,9 @@ export const SETTINGS: { [setting: string]: ISetting } = {
     },
     "custom_themes": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
-        default: [] as CustomTheme[],
+        default: [],
+        // Potential privacy leak via theme origin
+        shouldExportToRageshake: false,
     },
     "use_system_theme": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
@@ -782,21 +1014,36 @@ export const SETTINGS: { [setting: string]: ISetting } = {
     "language": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS_WITH_CONFIG,
         default: "en",
+        // For privacy
+        shouldExportToRageshake: false,
     },
     "breadcrumb_rooms": {
         // not really a setting
         supportedLevels: [SettingLevel.ACCOUNT],
         default: [],
+        // Contains joined rooms
+        shouldExportToRageshake: false,
     },
     "recent_emoji": {
         // not really a setting
         supportedLevels: [SettingLevel.ACCOUNT],
         default: [],
+        // For privacy
+        shouldExportToRageshake: false,
     },
     "SpotlightSearch.recentSearches": {
         // not really a setting
         supportedLevels: [SettingLevel.ACCOUNT],
         default: [], // list of room IDs, most recent first
+        // For privacy
+        shouldExportToRageshake: false,
+    },
+    "showMediaEventIds": {
+        // not really a setting
+        supportedLevels: [SettingLevel.DEVICE],
+        default: {}, // List of events => is visible
+        // Exports event IDs
+        shouldExportToRageshake: false,
     },
     "SpotlightSearch.showNsfwPublicRooms": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
@@ -806,6 +1053,8 @@ export const SETTINGS: { [setting: string]: ISetting } = {
     "room_directory_servers": {
         supportedLevels: [SettingLevel.ACCOUNT],
         default: [],
+        // Contains connected servers for user
+        shouldExportToRageshake: false,
     },
     "integrationProvisioning": {
         supportedLevels: [SettingLevel.ACCOUNT],
@@ -815,6 +1064,7 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         supportedLevels: [SettingLevel.ROOM_ACCOUNT, SettingLevel.ROOM_DEVICE],
         supportedLevelsAreOrdered: true,
         default: {}, // none allowed
+        shouldExportToRageshake: false,
     },
     // Legacy, kept around for transitionary purposes
     "analyticsOptIn": {
@@ -830,10 +1080,6 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         supportedLevels: [SettingLevel.ACCOUNT],
         displayName: _td("settings|security|record_session_details"),
         default: false,
-    },
-    "FTUE.useCaseSelection": {
-        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
-        default: null,
     },
     "Registration.mobileRegistrationHelper": {
         supportedLevels: [SettingLevel.CONFIG],
@@ -893,6 +1139,8 @@ export const SETTINGS: { [setting: string]: ISetting } = {
     "notificationSound": {
         supportedLevels: LEVELS_ROOM_OR_ACCOUNT,
         default: false,
+        // Contains personal information in file name
+        shouldExportToRageshake: false,
     },
     "notificationBodyEnabled": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
@@ -919,15 +1167,12 @@ export const SETTINGS: { [setting: string]: ISetting } = {
             allow: [],
             deny: [],
         },
+        // Expses widget information
+        shouldExportToRageshake: false,
     },
     "breadcrumbs": {
         supportedLevels: LEVELS_ACCOUNT_SETTINGS,
         displayName: _td("settings|show_breadcrumbs"),
-        default: true,
-    },
-    "FTUE.userOnboardingButton": {
-        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
-        displayName: _td("settings|preferences|show_checklist_shortcuts"),
         default: true,
     },
     "showHiddenEventsInTimeline": {
@@ -950,10 +1195,14 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         default: null,
         controller: new FallbackIceServerController(),
     },
-    "showImages": {
-        supportedLevels: LEVELS_ACCOUNT_SETTINGS,
-        displayName: _td("settings|image_thumbnails"),
-        default: true,
+    "RoomList.preferredSorting": {
+        supportedLevels: [SettingLevel.DEVICE],
+        default: SortingAlgorithm.Recency,
+    },
+    "RoomList.showMessagePreview": {
+        supportedLevels: [SettingLevel.DEVICE],
+        default: false,
+        displayName: _td("settings|show_message_previews"),
     },
     "RightPanel.phasesGlobal": {
         supportedLevels: [SettingLevel.DEVICE],
@@ -1009,6 +1258,8 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         // deprecated
         supportedLevels: LEVELS_ROOM_OR_ACCOUNT,
         default: {},
+        // Sensitive information in widget ID
+        shouldExportToRageshake: false,
     },
     "Widgets.layout": {
         supportedLevels: LEVELS_ROOM_OR_ACCOUNT,
@@ -1083,6 +1334,8 @@ export const SETTINGS: { [setting: string]: ISetting } = {
     "activeCallRoomIds": {
         supportedLevels: LEVELS_DEVICE_ONLY_SETTINGS,
         default: [],
+        // Contains room IDs
+        shouldExportToRageshake: false,
     },
     /**
      * Enable or disable the release announcement feature
@@ -1199,5 +1452,15 @@ export const SETTINGS: { [setting: string]: ISetting } = {
         supportedLevels: [SettingLevel.PLATFORM],
         displayName: _td("settings|preferences|enable_hardware_acceleration"),
         default: true,
+    },
+    "Electron.enableContentProtection": {
+        supportedLevels: [SettingLevel.PLATFORM],
+        displayName: _td("settings|preferences|enable_content_protection"),
+        default: false,
+    },
+    "Developer.elementCallUrl": {
+        supportedLevels: [SettingLevel.DEVICE],
+        displayName: _td("devtools|settings|elementCallUrl"),
+        default: "",
     },
 };

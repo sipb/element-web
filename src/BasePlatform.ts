@@ -5,30 +5,31 @@ Copyright 2018 New Vector Ltd
 Copyright 2016 Aviral Dasgupta
 Copyright 2016 OpenMarket Ltd
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import {
-    MatrixClient,
-    MatrixEvent,
-    Room,
-    SSOAction,
+    type MatrixClient,
+    type MatrixEvent,
+    type Room,
+    type SSOAction,
     encodeUnpaddedBase64,
-    OidcRegistrationClientMetadata,
+    type OidcRegistrationClientMetadata,
+    MatrixEventEvent,
 } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 
 import dis from "./dispatcher/dispatcher";
-import BaseEventIndexManager from "./indexing/BaseEventIndexManager";
-import { ActionPayload } from "./dispatcher/payloads";
-import { CheckUpdatesPayload } from "./dispatcher/payloads/CheckUpdatesPayload";
+import type BaseEventIndexManager from "./indexing/BaseEventIndexManager";
+import { type ActionPayload } from "./dispatcher/payloads";
+import { type CheckUpdatesPayload } from "./dispatcher/payloads/CheckUpdatesPayload";
 import { Action } from "./dispatcher/actions";
 import { hideToast as hideUpdateToast } from "./toasts/UpdateToast";
 import { MatrixClientPeg } from "./MatrixClientPeg";
 import { idbLoad, idbSave, idbDelete } from "./utils/StorageAccess";
-import { ViewRoomPayload } from "./dispatcher/payloads/ViewRoomPayload";
-import { IConfigOptions } from "./IConfigOptions";
+import { type ViewRoomPayload } from "./dispatcher/payloads/ViewRoomPayload";
+import { type IConfigOptions } from "./IConfigOptions";
 import SdkConfig from "./SdkConfig";
 import { buildAndEncodePickleKey, encryptPickleKey } from "./utils/tokens/pickling";
 import Favicon from "./favicon.ts";
@@ -71,7 +72,7 @@ export default abstract class BasePlatform {
     protected _favicon?: Favicon;
 
     protected constructor() {
-        dis.register(this.onAction);
+        dis.register(this.onAction.bind(this));
         this.startUpdateCheck = this.startUpdateCheck.bind(this);
     }
 
@@ -84,14 +85,14 @@ export default abstract class BasePlatform {
      */
     public abstract getDefaultDeviceDisplayName(): string;
 
-    protected onAction = (payload: ActionPayload): void => {
+    protected onAction(payload: ActionPayload): void {
         switch (payload.action) {
             case "on_client_not_viable":
             case Action.OnLoggedOut:
                 this.setNotificationCount(0);
                 break;
         }
-    };
+    }
 
     // Used primarily for Analytics
     public abstract getHumanReadableName(): string;
@@ -227,6 +228,16 @@ export default abstract class BasePlatform {
             dis.dispatch(payload);
             window.focus();
         };
+
+        const closeHandler = (): void => notification.close();
+
+        // Clear a notification from a redacted event.
+        if (ev) {
+            ev.once(MatrixEventEvent.BeforeRedaction, closeHandler);
+            notification.onclose = () => {
+                ev.off(MatrixEventEvent.BeforeRedaction, closeHandler);
+            };
+        }
 
         return notification;
     }
@@ -483,15 +494,12 @@ export default abstract class BasePlatform {
     }
 
     private updateFavicon(): void {
-        let bgColor = "#d00";
-        let notif: string | number = this.notificationCount;
+        const notif: string | number = this.notificationCount;
 
         if (this.errorDidOccur) {
-            notif = notif || "×";
-            bgColor = "#f00";
+            this.favicon.badge(notif || "×", { bgColor: "#f00" });
         }
-
-        this.favicon.badge(notif, { bgColor });
+        this.favicon.badge(notif);
     }
 
     /**

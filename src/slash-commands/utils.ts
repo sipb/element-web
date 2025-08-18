@@ -5,17 +5,17 @@ Copyright 2019 Michael Telatynski <7t3chguy@gmail.com>
 Copyright 2018 New Vector Ltd
 Copyright 2015, 2016 OpenMarket Ltd
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import { EventType, MatrixClient } from "matrix-js-sdk/src/matrix";
+import { EventType, type MatrixClient } from "matrix-js-sdk/src/matrix";
 
 import { SdkContextClass } from "../contexts/SDKContext";
 import { isLocalRoom } from "../utils/localRoom/isLocalRoom";
 import Modal from "../Modal";
 import UploadConfirmDialog from "../components/views/dialogs/UploadConfirmDialog";
-import { RunResult } from "./interface";
+import { type RunResult } from "./interface";
 
 export function reject(error?: any): RunResult {
     return { error };
@@ -49,16 +49,14 @@ export const singleMxcUpload = async (cli: MatrixClient): Promise<string | null>
             const file = (ev as HTMLInputEvent).target.files?.[0];
             if (!file) return;
 
-            Modal.createDialog(UploadConfirmDialog, {
-                file,
-                onFinished: async (shouldContinue): Promise<void> => {
-                    if (shouldContinue) {
-                        const { content_uri: uri } = await cli.uploadContent(file);
-                        resolve(uri);
-                    } else {
-                        resolve(null);
-                    }
-                },
+            const { finished } = Modal.createDialog(UploadConfirmDialog, { file });
+            finished.then(async ([shouldContinue]) => {
+                if (shouldContinue) {
+                    const { content_uri: uri } = await cli.uploadContent(file);
+                    resolve(uri);
+                } else {
+                    resolve(null);
+                }
             });
         };
 

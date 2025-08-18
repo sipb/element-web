@@ -3,11 +3,11 @@ Copyright 2019-2024 New Vector Ltd.
 Copyright 2019 The Matrix.org Foundation C.I.C.
 Copyright 2019 Michael Telatynski <7t3chguy@gmail.com>
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { useCallback, useContext, useEffect } from "react";
+import React, { type JSX, useCallback, useContext, useEffect } from "react";
 import { HTTPError } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 
@@ -165,10 +165,9 @@ const AccountUserSettingsTab: React.FC<IProps> = ({ closeSettingsFn }) => {
     }, []);
 
     const onDeactivateClicked = useCallback((): void => {
-        Modal.createDialog(DeactivateAccountDialog, {
-            onFinished: (success) => {
-                if (success) closeSettingsFn();
-            },
+        const { finished } = Modal.createDialog(DeactivateAccountDialog);
+        finished.then(([success]) => {
+            if (success) closeSettingsFn();
         });
     }, [closeSettingsFn]);
 
@@ -186,7 +185,9 @@ const AccountUserSettingsTab: React.FC<IProps> = ({ closeSettingsFn }) => {
                     canSetDisplayName={canSetDisplayName}
                     canSetAvatar={canSetAvatar}
                 />
-                <UserPersonalInfoSettings canMake3pidChanges={canMake3pidChanges} />
+                {(!isAccountManagedExternally || canMake3pidChanges) && (
+                    <UserPersonalInfoSettings canMake3pidChanges={canMake3pidChanges} />
+                )}
                 <AccountSection
                     canChangePassword={canChangePassword}
                     onPasswordChanged={onPasswordChanged}

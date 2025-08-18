@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2020 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -113,7 +113,7 @@ Please see LICENSE files in the repository root for full details.
             display: flex;
             align-items: center;
 
-            & + .mx_RoomListHeader {
+            & + .mx_LegacyRoomListHeader {
                 margin-top: 12px;
             }
 
@@ -180,7 +180,7 @@ Please see LICENSE files in the repository root for full details.
             }
         }
 
-        .mx_RoomListHeader:first-child {
+        .mx_LegacyRoomListHeader:first-child {
             margin-top: 12px;
         }
 
@@ -239,4 +239,12 @@ Please see LICENSE files in the repository root for full details.
             }
         }
     }
+}
+
+.mx_LeftPanel_newRoomList {
+    /* Thew new rooms list is not designed to be collapsed to just icons. */
+    /* 224 + 68(spaces bar) was deemed by design to be a good minimum for the left panel. */
+    --collapsedWidth: 224px;
+    /* Important to force the color on ED titlebar until we remove the old room list */
+    background-color: var(--cpd-color-bg-canvas-default) !important;
 }

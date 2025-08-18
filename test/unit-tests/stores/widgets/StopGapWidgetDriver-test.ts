@@ -2,47 +2,48 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import { mocked, MockedObject } from "jest-mock";
+import { mocked, type MockedObject } from "jest-mock";
 import fetchMockJest from "fetch-mock-jest";
 import {
-    MatrixClient,
+    type MatrixClient,
     ClientEvent,
-    ITurnServer as IClientTurnServer,
+    type ITurnServer as IClientTurnServer,
     Direction,
     EventType,
     MatrixEvent,
     MsgType,
     RelationType,
+    type Room,
 } from "matrix-js-sdk/src/matrix";
 import {
     Widget,
-    MatrixWidgetType,
     WidgetKind,
-    WidgetDriver,
-    ITurnServer,
+    type WidgetDriver,
+    type ITurnServer,
     SimpleObservable,
     OpenIDRequestState,
-    IOpenIDUpdate,
+    type IOpenIDUpdate,
     UpdateDelayedEventAction,
 } from "matrix-widget-api";
 import {
-    ApprovalOpts,
-    CapabilitiesOpts,
+    type ApprovalOpts,
+    type CapabilitiesOpts,
     WidgetLifecycle,
 } from "@matrix-org/react-sdk-module-api/lib/lifecycles/WidgetLifecycle";
 
 import { SdkContextClass } from "../../../../src/contexts/SDKContext";
 import { MatrixClientPeg } from "../../../../src/MatrixClientPeg";
 import { StopGapWidgetDriver } from "../../../../src/stores/widgets/StopGapWidgetDriver";
-import { stubClient } from "../../../test-utils";
+import { mkEvent, stubClient } from "../../../test-utils";
 import { ModuleRunner } from "../../../../src/modules/ModuleRunner";
 import dis from "../../../../src/dispatcher/dispatcher";
 import Modal from "../../../../src/Modal";
 import SettingsStore from "../../../../src/settings/SettingsStore";
+import { WidgetType } from "../../../../src/widgets/WidgetType.ts";
 
 describe("StopGapWidgetDriver", () => {
     let client: MockedObject<MatrixClient>;
@@ -78,7 +79,7 @@ describe("StopGapWidgetDriver", () => {
             new Widget({
                 id: "group_call",
                 creatorUserId: "@alice:example.org",
-                type: MatrixWidgetType.Custom,
+                type: WidgetType.CALL.preferred,
                 url: "https://call.element.io",
             }),
             WidgetKind.Room,
@@ -91,13 +92,18 @@ describe("StopGapWidgetDriver", () => {
             "m.always_on_screen",
             "town.robin.msc3846.turn_servers",
             "org.matrix.msc2762.timeline:!1:example.org",
+            "org.matrix.msc2762.send.event:org.matrix.msc4075.call.notify",
+            "org.matrix.msc2762.send.event:org.matrix.msc4075.rtc.notification",
             "org.matrix.msc2762.send.event:org.matrix.rageshake_request",
             "org.matrix.msc2762.receive.event:org.matrix.rageshake_request",
             "org.matrix.msc2762.send.event:m.reaction",
             "org.matrix.msc2762.receive.event:m.reaction",
             "org.matrix.msc2762.send.event:m.room.redaction",
             "org.matrix.msc2762.receive.event:m.room.redaction",
+            "org.matrix.msc2762.send.event:io.element.call.reaction",
+            "org.matrix.msc2762.receive.event:io.element.call.reaction",
             "org.matrix.msc2762.receive.state_event:m.room.create",
+            "org.matrix.msc2762.receive.state_event:m.room.name",
             "org.matrix.msc2762.receive.state_event:m.room.member",
             "org.matrix.msc2762.receive.state_event:org.matrix.msc3401.call",
             "org.matrix.msc2762.send.state_event:org.matrix.msc3401.call.member#@alice:example.org",
@@ -569,7 +575,7 @@ describe("StopGapWidgetDriver", () => {
 
         it("passes the flag through to getVisibleRooms", () => {
             const driver = mkDefaultDriver();
-            driver.readRoomEvents(EventType.CallAnswer, "", 0, ["*"]);
+            driver.getKnownRooms();
             expect(client.getVisibleRooms).toHaveBeenCalledWith(false);
         });
     });
@@ -584,7 +590,7 @@ describe("StopGapWidgetDriver", () => {
 
         it("passes the flag through to getVisibleRooms", () => {
             const driver = mkDefaultDriver();
-            driver.readRoomEvents(EventType.CallAnswer, "", 0, ["*"]);
+            driver.getKnownRooms();
             expect(client.getVisibleRooms).toHaveBeenCalledWith(true);
         });
     });
@@ -690,6 +696,116 @@ describe("StopGapWidgetDriver", () => {
             // Tell TypeScript that file is a blob.
             const file = result.file as Blob;
             await expect(file.text()).resolves.toEqual("test contents");
+        });
+    });
+
+    describe("readRoomTimeline", () => {
+        const event1 = mkEvent({
+            event: true,
+            id: "$event-id1",
+            type: "org.example.foo",
+            user: "@alice:example.org",
+            content: { hello: "world" },
+            room: "!1:example.org",
+        });
+        const event2 = mkEvent({
+            event: true,
+            id: "$event-id2",
+            type: "org.example.foo",
+            user: "@alice:example.org",
+            skey: "",
+            content: { hello: "world" },
+            room: "!1:example.org",
+        });
+        let driver: WidgetDriver;
+
+        beforeEach(() => {
+            driver = mkDefaultDriver();
+            client.getRoom.mockReturnValue({
+                getLiveTimeline: () => ({ getEvents: () => [event1, event2] }),
+            } as unknown as Room);
+        });
+
+        it("reads all events", async () => {
+            expect(
+                await driver.readRoomTimeline("!1:example.org", "org.example.foo", undefined, undefined, 10, undefined),
+            ).toEqual([event2, event1].map((e) => e.getEffectiveEvent()));
+        });
+
+        it("reads state events", async () => {
+            expect(
+                await driver.readRoomTimeline("!1:example.org", "org.example.foo", undefined, "", 10, undefined),
+            ).toEqual([event2.getEffectiveEvent()]);
+        });
+
+        it("reads up to a limit", async () => {
+            expect(
+                await driver.readRoomTimeline("!1:example.org", "org.example.foo", undefined, undefined, 1, undefined),
+            ).toEqual([event2.getEffectiveEvent()]);
+        });
+
+        it("reads up to a specific event", async () => {
+            expect(
+                await driver.readRoomTimeline(
+                    "!1:example.org",
+                    "org.example.foo",
+                    undefined,
+                    undefined,
+                    10,
+                    event1.getId(),
+                ),
+            ).toEqual([event2.getEffectiveEvent()]);
+        });
+    });
+
+    describe("readRoomState", () => {
+        const event1 = mkEvent({
+            event: true,
+            id: "$event-id1",
+            type: "org.example.foo",
+            user: "@alice:example.org",
+            content: { hello: "world" },
+            skey: "1",
+            room: "!1:example.org",
+        });
+        const event2 = mkEvent({
+            event: true,
+            id: "$event-id2",
+            type: "org.example.foo",
+            user: "@alice:example.org",
+            content: { hello: "world" },
+            skey: "2",
+            room: "!1:example.org",
+        });
+        let driver: WidgetDriver;
+        let getStateEvents: jest.Mock;
+
+        beforeEach(() => {
+            driver = mkDefaultDriver();
+            getStateEvents = jest.fn();
+            client.getRoom.mockReturnValue({
+                getLiveTimeline: () => ({ getState: () => ({ getStateEvents }) }),
+            } as unknown as Room);
+        });
+
+        it("reads a specific state key", async () => {
+            getStateEvents.mockImplementation((eventType, stateKey) => {
+                if (eventType === "org.example.foo" && stateKey === "1") return event1;
+                return undefined;
+            });
+            expect(await driver.readRoomState("!1:example.org", "org.example.foo", "1")).toEqual([
+                event1.getEffectiveEvent(),
+            ]);
+        });
+
+        it("reads all state keys", async () => {
+            getStateEvents.mockImplementation((eventType, stateKey) => {
+                if (eventType === "org.example.foo" && stateKey === undefined) return [event1, event2];
+                return [];
+            });
+            expect(await driver.readRoomState("!1:example.org", "org.example.foo", undefined)).toEqual(
+                [event1, event2].map((e) => e.getEffectiveEvent()),
+            );
         });
     });
 });

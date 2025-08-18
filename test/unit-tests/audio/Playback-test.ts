@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -47,7 +47,7 @@ describe("Playback", () => {
     beforeEach(() => {
         jest.spyOn(logger, "error").mockRestore();
         mockAudioBuffer.getChannelData.mockClear().mockReturnValue(mockChannelData);
-        mockAudioContext.decodeAudioData.mockReset().mockImplementation((_b, callback) => callback(mockAudioBuffer));
+        mockAudioContext.decodeAudioData.mockReset().mockResolvedValue(mockAudioBuffer);
         mockAudioContext.resume.mockClear().mockResolvedValue(undefined);
         mockAudioContext.suspend.mockClear().mockResolvedValue(undefined);
         mocked(decodeOgg).mockClear().mockResolvedValue(new ArrayBuffer(1));
@@ -131,8 +131,8 @@ describe("Playback", () => {
             const buffer = new ArrayBuffer(8);
             const decodingError = new Error("test");
             mockAudioContext.decodeAudioData
-                .mockImplementationOnce((_b, _callback, error) => error(decodingError))
-                .mockImplementationOnce((_b, callback) => callback(mockAudioBuffer));
+                .mockRejectedValueOnce(decodingError)
+                .mockResolvedValueOnce(mockAudioBuffer);
 
             const playback = new Playback(buffer);
 

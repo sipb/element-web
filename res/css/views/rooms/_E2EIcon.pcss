@@ -1,7 +1,7 @@
 /*
 Copyright 2019-2024 New Vector Ltd.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -53,6 +53,12 @@ Please see LICENSE files in the repository root for full details.
 .mx_E2EIcon_normal::after {
     mask-image: url("$(res)/img/e2e/normal.svg");
     background-color: var(--cpd-color-icon-tertiary);
+}
+
+.mx_E2EIcon_verified {
+    .mx_E2EIcon_normal::after {
+        background-color: white;
+    }
 }
 
 .mx_E2EIcon_verified::after {

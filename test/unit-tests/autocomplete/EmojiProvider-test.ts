@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022 Ryan Browne <code@commonlawfeature.com>
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -32,6 +32,10 @@ const EMOJI_SHORTCODES = [
 // This means that we cannot compare their autocompletion before and after the ending `:` and have
 // to simply assert that the final completion with the colon is the exact emoji.
 const TOO_SHORT_EMOJI_SHORTCODE = [{ emojiShortcode: ":o", expectedEmoji: "⭕️" }];
+
+interface CompletionComponentProps {
+    title: string;
+}
 
 describe("EmojiProvider", function () {
     const testRoom = mkStubRoom(undefined, undefined, undefined);
@@ -69,8 +73,8 @@ describe("EmojiProvider", function () {
 
         const ep = new EmojiProvider(testRoom);
         const completionsList = await ep.getCompletions(":heart", { beginning: true, start: 0, end: 6 });
-        expect(completionsList[0]?.component?.props.title).toEqual(":heartpulse:");
-        expect(completionsList[1]?.component?.props.title).toEqual(":heart_eyes:");
+        expect((completionsList[0]?.component?.props as CompletionComponentProps).title).toEqual(":heartpulse:");
+        expect((completionsList[1]?.component?.props as CompletionComponentProps).title).toEqual(":heart_eyes:");
     });
 
     it("Exact match in recently used takes the lead", async function () {
@@ -83,8 +87,8 @@ describe("EmojiProvider", function () {
         const ep = new EmojiProvider(testRoom);
         const completionsList = await ep.getCompletions(":heart", { beginning: true, start: 0, end: 6 });
 
-        expect(completionsList[0]?.component?.props.title).toEqual(":heart:");
-        expect(completionsList[1]?.component?.props.title).toEqual(":heartpulse:");
-        expect(completionsList[2]?.component?.props.title).toEqual(":heart_eyes:");
+        expect((completionsList[0]?.component?.props as CompletionComponentProps).title).toEqual(":heart:");
+        expect((completionsList[1]?.component?.props as CompletionComponentProps).title).toEqual(":heartpulse:");
+        expect((completionsList[2]?.component?.props as CompletionComponentProps).title).toEqual(":heart_eyes:");
     });
 });

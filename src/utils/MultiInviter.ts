@@ -2,13 +2,12 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2016-2021 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import { MatrixError, MatrixClient, EventType } from "matrix-js-sdk/src/matrix";
+import { MatrixError, type MatrixClient, EventType, type EmptyObject, type InviteOpts } from "matrix-js-sdk/src/matrix";
 import { KnownMembership } from "matrix-js-sdk/src/types";
-import { defer, IDeferred } from "matrix-js-sdk/src/utils";
 import { logger } from "matrix-js-sdk/src/logger";
 
 import { AddressType, getAddressType } from "../UserAddress";
@@ -51,7 +50,7 @@ export default class MultiInviter {
     private _fatal = false;
     private completionStates: CompletionStates = {}; // State of each address (invited or error)
     private errors: Record<string, IError> = {}; // { address: {errorText, errcode} }
-    private deferred: IDeferred<CompletionStates> | null = null;
+    private deferred: PromiseWithResolvers<CompletionStates> | null = null;
     private reason: string | undefined;
 
     /**
@@ -93,7 +92,7 @@ export default class MultiInviter {
                 };
             }
         }
-        this.deferred = defer<CompletionStates>();
+        this.deferred = Promise.withResolvers<CompletionStates>();
         this.inviteMore(0);
 
         return this.deferred.promise;
@@ -117,7 +116,7 @@ export default class MultiInviter {
         return this.errors[addr]?.errorText ?? null;
     }
 
-    private async inviteToRoom(roomId: string, addr: string, ignoreProfile = false): Promise<{}> {
+    private async inviteToRoom(roomId: string, addr: string, ignoreProfile = false): Promise<EmptyObject> {
         const addrType = getAddressType(addr);
 
         if (addrType === AddressType.Email) {
@@ -184,7 +183,11 @@ export default class MultiInviter {
                 }
             }
 
-            return this.matrixClient.invite(roomId, addr, this.reason);
+            const opts: InviteOpts = {};
+            if (this.reason !== undefined) opts.reason = this.reason;
+            if (SettingsStore.getValue("feature_share_history_on_invite")) opts.shareEncryptedHistory = true;
+
+            return this.matrixClient.invite(roomId, addr, opts);
         } else {
             throw new Error("Unsupported address");
         }

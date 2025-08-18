@@ -1,32 +1,31 @@
 /*
-Copyright 2024 New Vector Ltd.
+Copyright 2024, 2025 New Vector Ltd.
 Copyright 2019 Michael Telatynski <7t3chguy@gmail.com>
 Copyright 2019 The Matrix.org Foundation C.I.C.
 Copyright 2017, 2018 New Vector Ltd
 Copyright 2015, 2016 OpenMarket Ltd
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { LegacyRef, ReactNode } from "react";
-import sanitizeHtml from "sanitize-html";
+import React, { type JSX, type Key, type LegacyRef, type ReactNode } from "react";
+import sanitizeHtml, { type IOptions } from "sanitize-html";
 import classNames from "classnames";
 import katex from "katex";
 import { decode } from "html-entities";
-import { IContent } from "matrix-js-sdk/src/matrix";
-import { Optional } from "matrix-events-sdk";
+import { type IContent } from "matrix-js-sdk/src/matrix";
+import { type Optional } from "matrix-events-sdk";
 import escapeHtml from "escape-html";
 import { getEmojiFromUnicode } from "@matrix-org/emojibase-bindings";
 
-import { IExtendedSanitizeOptions } from "./@types/sanitize-html";
 import SettingsStore from "./settings/SettingsStore";
 import { stripHTMLReply, stripPlainReply } from "./utils/Reply";
 import { PERMITTED_URL_SCHEMES } from "./utils/UrlUtils";
 import { sanitizeHtmlParams, transformTags } from "./Linkify";
 import { graphemeSegmenter } from "./utils/strings";
 
-export { Linkify, linkifyElement, linkifyAndSanitizeHtml } from "./Linkify";
+export { Linkify, linkifyAndSanitizeHtml } from "./Linkify";
 
 // Anything outside the basic multilingual plane will be a surrogate pair
 const SURROGATE_PAIR_PATTERN = /([\ud800-\udbff])([\udc00-\udfff])/;
@@ -126,7 +125,7 @@ export function isUrlPermitted(inputUrl: string): boolean {
 }
 
 // this is the same as the above except with less rewriting
-const composerSanitizeHtmlParams: IExtendedSanitizeOptions = {
+const composerSanitizeHtmlParams: IOptions = {
     ...sanitizeHtmlParams,
     transformTags: {
         "code": transformTags["code"],
@@ -135,7 +134,7 @@ const composerSanitizeHtmlParams: IExtendedSanitizeOptions = {
 };
 
 // reduced set of allowed tags to avoid turning topics into Myspace
-const topicSanitizeHtmlParams: IExtendedSanitizeOptions = {
+const topicSanitizeHtmlParams: IOptions = {
     ...sanitizeHtmlParams,
     allowedTags: [
         "font", // custom to matrix for IRC-style font coloring
@@ -240,7 +239,7 @@ class HtmlHighlighter extends BaseHighlighter<string> {
 
 const emojiToHtmlSpan = (emoji: string): string =>
     `<span class='mx_Emoji' title='${unicodeToShortcode(emoji)}'>${emoji}</span>`;
-const emojiToJsxSpan = (emoji: string, key: number): JSX.Element => (
+const emojiToJsxSpan = (emoji: string, key: Key): JSX.Element => (
     <span key={key} className="mx_Emoji" title={unicodeToShortcode(emoji)}>
         {emoji}
     </span>
@@ -295,12 +294,30 @@ export interface EventRenderOpts {
     disableBigEmoji?: boolean;
     stripReplyFallback?: boolean;
     forComposerQuote?: boolean;
+    /**
+     * Should inline media be rendered?
+     */
+    mediaIsVisible?: boolean;
 }
 
 function analyseEvent(content: IContent, highlights: Optional<string[]>, opts: EventRenderOpts = {}): EventAnalysis {
     let sanitizeParams = sanitizeHtmlParams;
     if (opts.forComposerQuote) {
         sanitizeParams = composerSanitizeHtmlParams;
+    }
+
+    if (opts.mediaIsVisible === false && sanitizeParams.transformTags?.["img"]) {
+        // Prevent mutating the source of sanitizeParams.
+        sanitizeParams = {
+            ...sanitizeParams,
+            transformTags: {
+                ...sanitizeParams.transformTags,
+                img: (tagName) => {
+                    // Remove element
+                    return { tagName, attribs: {} };
+                },
+            },
+        };
     }
 
     try {
@@ -366,53 +383,6 @@ function analyseEvent(content: IContent, highlights: Optional<string[]>, opts: E
     }
 }
 
-export function bodyToDiv(
-    content: IContent,
-    highlights: Optional<string[]>,
-    opts: EventRenderOpts = {},
-    ref?: React.Ref<HTMLDivElement>,
-): ReactNode {
-    const { strippedBody, formattedBody, emojiBodyElements, className } = bodyToNode(content, highlights, opts);
-
-    return formattedBody ? (
-        <div
-            key="body"
-            ref={ref}
-            className={className}
-            dangerouslySetInnerHTML={{ __html: formattedBody }}
-            dir="auto"
-        />
-    ) : (
-        <div key="body" ref={ref} className={className} dir="auto">
-            {emojiBodyElements || strippedBody}
-        </div>
-    );
-}
-
-export function bodyToSpan(
-    content: IContent,
-    highlights: Optional<string[]>,
-    opts: EventRenderOpts = {},
-    ref?: React.Ref<HTMLSpanElement>,
-    includeDir = true,
-): ReactNode {
-    const { strippedBody, formattedBody, emojiBodyElements, className } = bodyToNode(content, highlights, opts);
-
-    return formattedBody ? (
-        <span
-            key="body"
-            ref={ref}
-            className={className}
-            dangerouslySetInnerHTML={{ __html: formattedBody }}
-            dir={includeDir ? "auto" : undefined}
-        />
-    ) : (
-        <span key="body" ref={ref} className={className} dir={includeDir ? "auto" : undefined}>
-            {emojiBodyElements || strippedBody}
-        </span>
-    );
-}
-
 interface BodyToNodeReturn {
     strippedBody: string;
     formattedBody?: string;
@@ -420,7 +390,11 @@ interface BodyToNodeReturn {
     className: string;
 }
 
-function bodyToNode(content: IContent, highlights: Optional<string[]>, opts: EventRenderOpts = {}): BodyToNodeReturn {
+export function bodyToNode(
+    content: IContent,
+    highlights: Optional<string[]>,
+    opts: EventRenderOpts = {},
+): BodyToNodeReturn {
     const eventInfo = analyseEvent(content, highlights, opts);
 
     let emojiBody = false;
@@ -506,10 +480,6 @@ export function topicToHtml(
     ref?: LegacyRef<HTMLSpanElement>,
     allowExtendedHtml = false,
 ): ReactNode {
-    if (!SettingsStore.getValue("feature_html_topic")) {
-        htmlTopic = undefined;
-    }
-
     let isFormattedTopic = !!htmlTopic;
     let topicHasEmoji = false;
     let safeTopic = "";

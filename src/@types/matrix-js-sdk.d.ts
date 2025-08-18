@@ -1,8 +1,8 @@
 /*
-Copyright 2024 New Vector Ltd.
+Copyright 2024, 2025 New Vector Ltd.
 Copyright 2024 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -11,6 +11,11 @@ import type { BLURHASH_FIELD } from "../utils/image-media";
 import type { JitsiCallMemberEventType, JitsiCallMemberContent } from "../call-types";
 import type { ILayoutStateEvent, WIDGET_LAYOUT_EVENT_TYPE } from "../stores/widgets/types";
 import type { EncryptedFile } from "matrix-js-sdk/src/types";
+import type { EmptyObject } from "matrix-js-sdk/src/matrix";
+import type { DeviceClientInformation } from "../utils/device/types.ts";
+import type { UserWidget } from "../utils/WidgetUtils-types.ts";
+import { type MediaPreviewConfig } from "./media_preview.ts";
+import { type INVITE_RULES_ACCOUNT_DATA_TYPE, type InviteConfigAccountData } from "./invite-rules.ts";
 
 // Extend Matrix JS SDK types via Typescript declaration merging to support unspecced event fields and types
 declare module "matrix-js-sdk/src/types" {
@@ -33,7 +38,7 @@ declare module "matrix-js-sdk/src/types" {
         [JitsiCallMemberEventType]: JitsiCallMemberContent;
 
         // Unstable widgets state events
-        "im.vector.modular.widgets": IWidget | {};
+        "im.vector.modular.widgets": IWidget | EmptyObject;
         [WIDGET_LAYOUT_EVENT_TYPE]: ILayoutStateEvent;
 
         // Element custom state events
@@ -56,6 +61,41 @@ declare module "matrix-js-sdk/src/types" {
             };
         };
     }
+    export interface AccountDataEvents {
+        // Analytics account data event
+        "im.vector.analytics": {
+            id: string;
+            pseudonymousAnalyticsOptIn?: boolean;
+        };
+        // Device client information account data event
+        [key: `io.element.matrix_client_information.${string}`]: DeviceClientInformation;
+        // Element settings account data events
+        "im.vector.setting.breadcrumbs": { recent_rooms: string[] };
+        "io.element.recent_emoji": { recent_emoji: string[] };
+        "im.vector.setting.integration_provisioning": { enabled: boolean };
+        "im.vector.riot.breadcrumb_rooms": { recent_rooms: string[] };
+        "im.vector.web.settings": Record<string, any>;
+
+        // URL preview account data event
+        "org.matrix.preview_urls": { disable: boolean };
+
+        // This is not yet in the Matrix spec yet is being used as if it was
+        "m.widgets": {
+            [widgetId: string]: UserWidget;
+        };
+
+        // This is not in the Matrix spec yet seems to use an `m.` prefix
+        "m.accepted_terms": {
+            accepted: string[];
+        };
+
+        // MSC4155: Invite filtering
+        [INVITE_RULES_ACCOUNT_DATA_TYPE]: InviteConfigAccountData;
+        "io.element.msc4278.media_preview_config": MediaPreviewConfig;
+
+        // Indicate whether recovery is enabled or disabled
+        "io.element.recovery": { enabled: boolean };
+    }
 
     export interface AudioContent {
         // MSC1767 + Ideals of MSC2516 as MSC3245
@@ -73,6 +113,6 @@ declare module "matrix-js-sdk/src/types" {
             // https://github.com/matrix-org/matrix-doc/pull/3246
             waveform?: number[];
         };
-        "org.matrix.msc3245.voice"?: {};
+        "org.matrix.msc3245.voice"?: EmptyObject;
     }
 }

@@ -2,16 +2,16 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022, 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import {
     EventTimeline,
-    EventTimelineSet,
+    type EventTimelineSet,
     EventType,
-    IRoomEvent,
-    MatrixClient,
+    type IRoomEvent,
+    type MatrixClient,
     MatrixEvent,
     MsgType,
     Relations,
@@ -22,10 +22,10 @@ import {
 } from "matrix-js-sdk/src/matrix";
 import fetchMock from "fetch-mock-jest";
 import escapeHtml from "escape-html";
-import { RelationsContainer } from "matrix-js-sdk/src/models/relations-container";
+import { type RelationsContainer } from "matrix-js-sdk/src/models/relations-container";
 
 import { filterConsole, mkReaction, mkStubRoom, REPEATABLE_DATE, stubClient } from "../../../test-utils";
-import { ExportType, IExportOptions } from "../../../../src/utils/exportUtils/exportUtils";
+import { ExportType, type IExportOptions } from "../../../../src/utils/exportUtils/exportUtils";
 import SdkConfig from "../../../../src/SdkConfig";
 import HTMLExporter from "../../../../src/utils/exportUtils/HtmlExport";
 import DMRoomMap from "../../../../src/utils/DMRoomMap";
@@ -104,8 +104,8 @@ describe("HTMLExport", () => {
             const chunk = events.slice(from, limit);
             return Promise.resolve({
                 chunk,
-                from: from.toString(),
-                to: (from + limit).toString(),
+                start: from.toString(),
+                end: (from + limit).toString(),
             });
         });
     }
@@ -417,6 +417,36 @@ describe("HTMLExport", () => {
         // Ensure that the attachment has the expected content
         const text = await file.text();
         expect(text).toBe(attachmentBody);
+    });
+
+    it("should handle attachments with identical names and dates", async () => {
+        mockMessages(EVENT_MESSAGE, EVENT_ATTACHMENT, EVENT_ATTACHMENT);
+
+        const exporter = new HTMLExporter(
+            room,
+            ExportType.LastNMessages,
+            {
+                attachmentsIncluded: true,
+                maxSize: 1_024 * 1_024,
+                numberOfMessages: 40,
+            },
+            () => {},
+        );
+
+        await exporter.export();
+
+        const files = getFiles(exporter);
+
+        // There should be 5 files: 2 attachments, 1 html file, 1 css file and 1 js file
+        expect(Object.keys(files)).toHaveLength(5);
+
+        // Ensure that the attachment is present
+        const file = files[Object.keys(files).find((k) => k.endsWith(".txt"))!];
+        expect(file).not.toBeUndefined();
+
+        // Ensure that the duplicate attachment has been uniquely named
+        const duplicateFile = files[Object.keys(files).find((k) => k.endsWith("(1).txt"))!];
+        expect(duplicateFile).not.toBeUndefined();
     });
 
     it("should handle when attachment cannot be fetched", async () => {

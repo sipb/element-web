@@ -2,14 +2,14 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2015-2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import React from "react";
 import {
-    MatrixEvent,
-    MatrixClient,
+    type MatrixEvent,
+    type MatrixClient,
     GuestAccess,
     HistoryVisibility,
     JoinRule,
@@ -17,11 +17,12 @@ import {
     MsgType,
     M_POLL_START,
     M_POLL_END,
+    ContentHelpers,
 } from "matrix-js-sdk/src/matrix";
 import { KnownMembership } from "matrix-js-sdk/src/types";
 import { logger } from "matrix-js-sdk/src/logger";
 import { removeDirectionOverrideChars } from "matrix-js-sdk/src/utils";
-import { PollStartEvent } from "matrix-js-sdk/src/extensible_events_v1/PollStartEvent";
+import { type PollStartEvent } from "matrix-js-sdk/src/extensible_events_v1/PollStartEvent";
 
 import { _t } from "./languageHandler";
 import * as Roles from "./Roles";
@@ -190,7 +191,10 @@ function textForMemberEvent(
         case KnownMembership.Leave:
             if (ev.getSender() === ev.getStateKey()) {
                 if (prevContent.membership === KnownMembership.Invite) {
-                    return () => _t("timeline|m.room.member|reject_invite", { targetName });
+                    return () =>
+                        reason
+                            ? _t("timeline|m.room.member|reject_invite_reason", { targetName, reason })
+                            : _t("timeline|m.room.member|reject_invite", { targetName });
                 } else {
                     return () =>
                         reason
@@ -227,11 +231,16 @@ function textForMemberEvent(
 
 function textForTopicEvent(ev: MatrixEvent): (() => string) | null {
     const senderDisplayName = ev.sender && ev.sender.name ? ev.sender.name : ev.getSender();
+    const topic = ContentHelpers.parseTopicContent(ev.getContent()).text;
     return () =>
-        _t("timeline|m.room.topic", {
-            senderDisplayName,
-            topic: ev.getContent().topic,
-        });
+        topic
+            ? _t("timeline|m.room.topic|changed", {
+                  senderDisplayName,
+                  topic,
+              })
+            : _t("timeline|m.room.topic|removed", {
+                  senderDisplayName,
+              });
 }
 
 function textForRoomAvatarEvent(ev: MatrixEvent): (() => string) | null {
@@ -563,8 +572,11 @@ function textForPinnedEvent(event: MatrixEvent, client: MatrixClient, allowJSX: 
     const senderName = getSenderName(event);
     const roomId = event.getRoomId()!;
 
-    const pinned = event.getContent<{ pinned: string[] }>().pinned ?? [];
-    const previouslyPinned: string[] = event.getPrevContent().pinned ?? [];
+    const content = event.getContent<{ pinned: string[] }>();
+    const prevContent = event.getPrevContent();
+
+    const pinned = Array.isArray(content.pinned) ? content.pinned : [];
+    const previouslyPinned: string[] = Array.isArray(prevContent.pinned) ? prevContent.pinned : [];
     const newlyPinned = pinned.filter((item) => previouslyPinned.indexOf(item) < 0);
     const newlyUnpinned = previouslyPinned.filter((item) => pinned.indexOf(item) < 0);
 

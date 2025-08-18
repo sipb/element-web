@@ -1,7 +1,7 @@
 /*
 Copyright 2018-2024 New Vector Ltd.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -62,14 +62,14 @@ export async function startAnyRegistrationFlow(
                   </button>,
               ]
             : [],
-        onFinished: (proceed) => {
-            if (proceed) {
-                dis.dispatch({ action: "start_login", screenAfterLogin: options.screen_after });
-            } else if (options.go_home_on_cancel) {
-                dis.dispatch({ action: Action.ViewHomePage });
-            } else if (options.go_welcome_on_cancel) {
-                dis.dispatch({ action: "view_welcome_page" });
-            }
-        },
+    });
+    modal.finished.then(([proceed]) => {
+        if (proceed) {
+            dis.dispatch({ action: "start_login", screenAfterLogin: options.screen_after });
+        } else if (options.go_home_on_cancel) {
+            dis.dispatch({ action: Action.ViewHomePage });
+        } else if (options.go_welcome_on_cancel) {
+            dis.dispatch({ action: "view_welcome_page" });
+        }
     });
 }

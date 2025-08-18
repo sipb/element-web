@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2020 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -25,6 +25,11 @@ export enum Action {
      * View a user's profile. Should be used with a ViewUserPayload.
      */
     ViewUser = "view_user",
+
+    /**
+     * Share a text message by forwarding it to a room selected by the user
+     */
+    Share = "share",
 
     /**
      * Open the user settings. No additional payload information required.
@@ -136,20 +141,6 @@ export enum Action {
     OpenDialPad = "open_dial_pad",
 
     /**
-     * Fired when CallHandler has checked for PSTN protocol support
-     * payload: none
-     * XXX: Is an action the right thing for this?
-     */
-    PstnSupportUpdated = "pstn_support_updated",
-
-    /**
-     * Similar to PstnSupportUpdated, fired when CallHandler has checked for virtual room support
-     * payload: none
-     * XXX: Ditto
-     */
-    VirtualRoomSupportUpdated = "virtual_room_support_updated",
-
-    /**
      * Fired when an upload has started. Should be used with UploadStartedPayload.
      */
     UploadStarted = "upload_started",
@@ -248,6 +239,12 @@ export enum Action {
      * Dispatched after leave room or space is finished
      */
     AfterLeaveRoom = "after_leave_room",
+
+    /**
+     * Dispatched after a room has been successfully forgotten
+     * Should be used with AfterForgetRoomPayload.
+     */
+    AfterForgetRoom = "after_forget_room",
 
     /**
      * Used to defer actions until after sync is complete
@@ -376,7 +373,17 @@ export enum Action {
     View3pidInvite = "view_3pid_invite",
 
     /**
-     * Opens right panel room summary and focuses the search input
+     * Opens right panel room summary and focuses the search input. Use with a FocusMessageSearchPayload.
      */
     FocusMessageSearch = "focus_search",
+
+    /**
+     * Open the direct message dialog
+     */
+    CreateChat = "view_create_chat",
+
+    /**
+     * Open the create room dialog
+     */
+    CreateRoom = "view_create_room",
 }

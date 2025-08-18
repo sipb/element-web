@@ -2,13 +2,12 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import React from "react";
 import { fireEvent, render, screen, within } from "jest-matrix-react";
-import { defer, IDeferred } from "matrix-js-sdk/src/utils";
 
 import EventIndexPanel from "../../../../../src/components/views/settings/EventIndexPanel";
 import EventIndexPeg from "../../../../../src/indexing/EventIndexPeg";
@@ -140,9 +139,9 @@ describe("<EventIndexPanel />", () => {
         });
         it("enables event indexing on enable button click", async () => {
             jest.spyOn(EventIndexPeg, "supportIsInstalled").mockReturnValue(true);
-            let deferredInitEventIndex: IDeferred<boolean> | undefined;
+            let deferredInitEventIndex: PromiseWithResolvers<boolean> | undefined;
             jest.spyOn(EventIndexPeg, "initEventIndex").mockImplementation(() => {
-                deferredInitEventIndex = defer<boolean>();
+                deferredInitEventIndex = Promise.withResolvers<boolean>();
                 return deferredInitEventIndex.promise;
             });
 

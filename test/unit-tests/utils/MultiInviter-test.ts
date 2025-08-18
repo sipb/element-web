@@ -2,20 +2,20 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import { mocked } from "jest-mock";
-import { EventType, MatrixClient, MatrixError, MatrixEvent, Room, RoomMember } from "matrix-js-sdk/src/matrix";
+import { EventType, type MatrixClient, MatrixError, MatrixEvent, Room, RoomMember } from "matrix-js-sdk/src/matrix";
 import { KnownMembership } from "matrix-js-sdk/src/types";
 
 import { MatrixClientPeg } from "../../../src/MatrixClientPeg";
-import Modal, { ComponentType, ComponentProps } from "../../../src/Modal";
+import Modal, { type ComponentType, type ComponentProps } from "../../../src/Modal";
 import SettingsStore from "../../../src/settings/SettingsStore";
-import MultiInviter, { CompletionStates } from "../../../src/utils/MultiInviter";
+import MultiInviter, { type CompletionStates } from "../../../src/utils/MultiInviter";
 import * as TestUtilsMatrix from "../../test-utils";
-import AskInviteAnywayDialog from "../../../src/components/views/dialogs/AskInviteAnywayDialog";
+import type AskInviteAnywayDialog from "../../../src/components/views/dialogs/AskInviteAnywayDialog";
 import ConfirmUserActionDialog from "../../../src/components/views/dialogs/ConfirmUserActionDialog";
 
 const ROOMID = "!room:server";
@@ -96,9 +96,9 @@ describe("MultiInviter", () => {
                 const result = await inviter.invite([MXID1, MXID2, MXID3]);
 
                 expect(client.invite).toHaveBeenCalledTimes(3);
-                expect(client.invite).toHaveBeenNthCalledWith(1, ROOMID, MXID1, undefined);
-                expect(client.invite).toHaveBeenNthCalledWith(2, ROOMID, MXID2, undefined);
-                expect(client.invite).toHaveBeenNthCalledWith(3, ROOMID, MXID3, undefined);
+                expect(client.invite).toHaveBeenNthCalledWith(1, ROOMID, MXID1, {});
+                expect(client.invite).toHaveBeenNthCalledWith(2, ROOMID, MXID2, {});
+                expect(client.invite).toHaveBeenNthCalledWith(3, ROOMID, MXID3, {});
 
                 expectAllInvitedResult(result);
             });
@@ -114,9 +114,9 @@ describe("MultiInviter", () => {
                     const result = await inviter.invite([MXID1, MXID2, MXID3]);
 
                     expect(client.invite).toHaveBeenCalledTimes(3);
-                    expect(client.invite).toHaveBeenNthCalledWith(1, ROOMID, MXID1, undefined);
-                    expect(client.invite).toHaveBeenNthCalledWith(2, ROOMID, MXID2, undefined);
-                    expect(client.invite).toHaveBeenNthCalledWith(3, ROOMID, MXID3, undefined);
+                    expect(client.invite).toHaveBeenNthCalledWith(1, ROOMID, MXID1, {});
+                    expect(client.invite).toHaveBeenNthCalledWith(2, ROOMID, MXID2, {});
+                    expect(client.invite).toHaveBeenNthCalledWith(3, ROOMID, MXID3, {});
 
                     expectAllInvitedResult(result);
                 });
@@ -129,7 +129,7 @@ describe("MultiInviter", () => {
                     const result = await inviter.invite([MXID1, MXID2, MXID3]);
 
                     expect(client.invite).toHaveBeenCalledTimes(1);
-                    expect(client.invite).toHaveBeenNthCalledWith(1, ROOMID, MXID1, undefined);
+                    expect(client.invite).toHaveBeenNthCalledWith(1, ROOMID, MXID1, {});
 
                     // The resolved state is 'invited' for all users.
                     // With the above client expectations, the test ensures that only the first user is invited.
@@ -230,6 +230,16 @@ describe("MultiInviter", () => {
             expect(inviter.getErrorText("@user:other_server")).toMatchInlineSnapshot(
                 `"This space is unfederated. You cannot invite people from external servers."`,
             );
+        });
+
+        it("should set shareEncryptedHistory if that setting is enabled", async () => {
+            mocked(SettingsStore.getValue).mockImplementation((settingName, roomId, value) => {
+                return settingName === "feature_share_history_on_invite"; // this is enabled, everything else is disabled.
+            });
+            await inviter.invite([MXID1]);
+
+            expect(client.invite).toHaveBeenCalledTimes(1);
+            expect(client.invite).toHaveBeenNthCalledWith(1, ROOMID, MXID1, { shareEncryptedHistory: true });
         });
     });
 });

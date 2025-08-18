@@ -6,7 +6,7 @@ Copyright 2018, 2019 New Vector Ltd
 Copyright 2017 Vector Creations Ltd
 Copyright 2015, 2016 OpenMarket Ltd
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -49,6 +49,8 @@ function checkBrowserFeatures(): boolean {
     window.Modernizr.addTest("promiseprototypefinally", () => typeof window.Promise?.prototype?.finally === "function");
     // ES2020: http://262.ecma-international.org/#sec-promise.allsettled
     window.Modernizr.addTest("promiseallsettled", () => typeof window.Promise?.allSettled === "function");
+    // ES2024: https://2ality.com/2024/05/proposal-promise-with-resolvers.html
+    window.Modernizr.addTest("promisewithresolvers", () => typeof window.Promise?.withResolvers === "function");
     // ES2018: https://262.ecma-international.org/9.0/#sec-get-regexp.prototype.dotAll
     window.Modernizr.addTest(
         "regexpdotall",
@@ -114,6 +116,7 @@ async function start(): Promise<void> {
         loadTheme,
         loadApp,
         loadModules,
+        loadPlugins,
         showError,
         showIncompatibleBrowser,
         _t,
@@ -159,18 +162,17 @@ async function start(): Promise<void> {
         // now that the config is ready, try to persist logs
         const persistLogsPromise = setupLogStorage();
 
-        // Load modules before language to ensure any custom translations are respected, and any app
-        // startup functionality is run
-        const loadModulesPromise = loadModules();
-        await settled(loadModulesPromise);
-
         // Load language after loading config.json so that settingsDefaults.language can be applied
         const loadLanguagePromise = loadLanguage();
         // as quickly as we possibly can, set a default theme...
         const loadThemePromise = loadTheme();
-
         // await things settling so that any errors we have to render have features like i18n running
         await settled(loadThemePromise, loadLanguagePromise);
+
+        const loadModulesPromise = loadModules();
+        await settled(loadModulesPromise);
+        const loadPluginsPromise = loadPlugins();
+        await settled(loadPluginsPromise);
 
         let acceptBrowser = supportedBrowser;
         if (!acceptBrowser && window.localStorage) {
@@ -215,6 +217,7 @@ async function start(): Promise<void> {
         // app load critical path starts here
         // assert things started successfully
         // ##################################
+        await loadPluginsPromise;
         await loadModulesPromise;
         await loadThemePromise;
         await loadLanguagePromise;

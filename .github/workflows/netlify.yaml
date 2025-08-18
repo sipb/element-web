@@ -3,7 +3,7 @@
 name: Upload Preview Build to Netlify
 on:
     workflow_run:
-        workflows: ["End to End Tests"]
+        workflows: ["Build"]
         types:
             - completed
 jobs:
@@ -28,15 +28,15 @@ jobs:
                       Exercise caution. Use test accounts.
 
             - name: 📥 Download artifact
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
                   run-id: ${{ github.event.workflow_run.id }}
-                  name: webapp
+                  name: webapp-ubuntu-24.04
                   path: webapp
 
             - name: 📤 Deploy to Netlify
-              uses: matrix-org/netlify-pr-preview@v3
+              uses: matrix-org/netlify-pr-preview@9805cd123fc9a7e421e35340a05e1ebc5dee46b5 # v3
               with:
                   path: webapp
                   owner: ${{ github.event.workflow_run.head_repository.owner.login }}

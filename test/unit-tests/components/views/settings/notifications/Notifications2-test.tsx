@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022, 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -10,8 +10,8 @@ import { act, findByRole, getByRole, queryByRole, render, waitFor } from "jest-m
 import userEvent from "@testing-library/user-event";
 import {
     ThreepidMedium,
-    IPushRules,
-    MatrixClient,
+    type IPushRules,
+    type MatrixClient,
     NotificationCountType,
     PushRuleKind,
     Room,
@@ -39,8 +39,7 @@ const labelActivityStatus = "New room activity, upgrades and status messages occ
 const labelActivityBots = "Messages sent by bots";
 const labelMentionUser = "Notify when someone mentions using @displayname or @mxid";
 const labelMentionRoom = "Notify when someone mentions using @room";
-const labelMentionKeyword =
-    "Notify when someone uses a keyword" + "Enter keywords here, or use for spelling variations or nicknames";
+const labelMentionKeyword = "Notify when someone uses a keyword";
 const labelResetDefault = "Reset to default settings";
 
 const keywords = ["justjann3", "justj4nn3", "justj4nne", "Janne", "J4nne", "Jann3", "jann3", "j4nne", "janne"];

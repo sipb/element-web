@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -43,6 +43,7 @@ test.describe("Pills", () => {
 
         // go back to the message room and try to click on the pill text, as a user would
         await app.viewRoomByName(messageRoom);
+        await expect(page).toHaveURL(new RegExp(`/#/room/${messageRoomId}`));
         const pillText = page.locator(".mx_EventTile_body .mx_Pill .mx_Pill_text");
         await expect(pillText).toHaveCSS("pointer-events", "none");
         await pillText.click({ force: true }); // force is to ensure we bypass pointer-events

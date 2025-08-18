@@ -130,32 +130,37 @@ complete re-branding/private labeling, a more personalised experience can be ach
 6. `mobile_builds`: Optional. Like `desktop_builds`, except for the mobile apps. Also described in more detail down below.
 7. `mobile_guide_toast`: When `true` (default), users accessing the Element Web instance from a mobile device will be prompted to
    download the app instead.
-8. `update_base_url`: For the desktop app only, the URL where to acquire update packages. If specified, must be a path to a directory
+8. `mobile_guide_app_variant`: Optional. The mobile app that the user is prompted to download from the `/mobile_guide` page. When omitted
+   the mobile guide will be configured for the new Element X apps. Allowed values are as follows:
+    1. `element`: Element X Android/iOS.
+    2. `element-classic`: Element Classic Android/iOS.
+    3. `element-pro`: Element Pro Android/iOS.
+9. `update_base_url`: For the desktop app only, the URL where to acquire update packages. If specified, must be a path to a directory
    containing `macos` and `win32` directories, with the update packages within. Defaults to `https://packages.element.io/desktop/update/`
    in production.
-9. `map_style_url`: Map tile server style URL for location sharing. e.g. `https://api.maptiler.com/maps/streets/style.json?key=YOUR_KEY_GOES_HERE`
-   This setting is ignored if your homeserver provides `/.well-known/matrix/client` in its well-known location, and the JSON file
-   at that location has a key `m.tile_server` (or the unstable version `org.matrix.msc3488.tile_server`). In this case, the
-   configuration found in the well-known location is used instead.
-10. `welcome_user_id`: **DEPRECATED** An optional user ID to start a DM with after creating an account. Defaults to nothing (no DM created).
-11. `custom_translations_url`: An optional URL to allow overriding of translatable strings. The JSON file must be in a format of
+10. `map_style_url`: Map tile server style URL for location sharing. e.g. `https://api.maptiler.com/maps/streets/style.json?key=YOUR_KEY_GOES_HERE`
+    This setting is ignored if your homeserver provides `/.well-known/matrix/client` in its well-known location, and the JSON file
+    at that location has a key `m.tile_server` (or the unstable version `org.matrix.msc3488.tile_server`). In this case, the
+    configuration found in the well-known location is used instead.
+11. `welcome_user_id`: **DEPRECATED** An optional user ID to start a DM with after creating an account. Defaults to nothing (no DM created).
+12. `custom_translations_url`: An optional URL to allow overriding of translatable strings. The JSON file must be in a format of
     `{"affected|translation|key": {"languageCode": "new string"}}`. See https://github.com/matrix-org/matrix-react-sdk/pull/7886 for details.
-12. `branding`: Options for configuring various assets used within the app. Described in more detail down below.
-13. `embedded_pages`: Further optional URLs for various assets used within the app. Described in more detail down below.
-14. `disable_3pid_login`: When `false` (default), **enables** the options to log in with email address or phone number. Set to
+13. `branding`: Options for configuring various assets used within the app. Described in more detail down below.
+14. `embedded_pages`: Further optional URLs for various assets used within the app. Described in more detail down below.
+15. `disable_3pid_login`: When `false` (default), **enables** the options to log in with email address or phone number. Set to
     `true` to hide these options.
-15. `disable_login_language_selector`: When `false` (default), **enables** the language selector on the login pages. Set to `true`
+16. `disable_login_language_selector`: When `false` (default), **enables** the language selector on the login pages. Set to `true`
     to hide this dropdown.
-16. `disable_guests`: When `false` (default), **enable** guest-related functionality (peeking/previewing rooms, etc) for unregistered
+17. `disable_guests`: When `false` (default), **enable** guest-related functionality (peeking/previewing rooms, etc) for unregistered
     users. Set to `true` to disable this functionality.
-17. `user_notice`: Optional notice to show to the user, e.g. for sunsetting a deployment and pushing users to move in their own time.
+18. `user_notice`: Optional notice to show to the user, e.g. for sunsetting a deployment and pushing users to move in their own time.
     Takes a configuration object as below:
     1. `title`: Required. Title to show at the top of the notice.
     2. `description`: Required. The description to use for the notice.
     3. `show_once`: Optional. If true then the notice will only be shown once per device.
-18. `help_url`: The URL to point users to for help with the app, defaults to `https://element.io/help`.
-19. `help_encryption_url`: The URL to point users to for help with encryption, defaults to `https://element.io/help#encryption`.
-20. `force_verification`: If true, users must verify new logins (eg. with another device / their security key)
+19. `help_url`: The URL to point users to for help with the app, defaults to `https://element.io/help`.
+20. `help_encryption_url`: The URL to point users to for help with encryption, defaults to `https://element.io/help#encryption`.
+21. `force_verification`: If true, users must verify new logins (eg. with another device / their recovery key)
 
 ### `desktop_builds` and `mobile_builds`
 
@@ -163,14 +168,14 @@ These two options describe the various availability for the application. When th
 such as trying to get the user to use an Android app or the desktop app for encrypted search, the config options will be looked
 at to see if the link should be to somewhere else.
 
-Starting with `desktop_builds`, the following subproperties are available:
+Starting with `desktop_builds`, the following sub-properties are available:
 
 1. `available`: Required. When `true`, the desktop app can be downloaded from somewhere.
 2. `logo`: Required. A URL to a logo (SVG), intended to be shown at 24x24 pixels.
 3. `url`: Required. The download URL for the app. This is used as a hyperlink.
 4. `url_macos`: Optional. Direct link to download macOS desktop app.
-5. `url_win32`: Optional. Direct link to download Windows 32-bit desktop app.
-6. `url_win64`: Optional. Direct link to download Windows 64-bit desktop app.
+5. `url_win64`: Optional. Direct link to download Windows x86 64-bit desktop app.
+6. `url_win64arm`: Optional. Direct link to download Windows ARM 64-bit desktop app.
 7. `url_linux`: Optional. Direct link to download Linux desktop app.
 
 When `desktop_builds` is not specified at all, the app will assume desktop downloads are available from https://element.io
@@ -384,8 +389,6 @@ The VoIP and Jitsi options are:
 5. `audio_stream_url`: Optional URL to pass to Jitsi to enable live streaming. This option is considered experimental and may be removed
    at any time without notice.
 6. `element_call`: Optional configuration for native group calls using Element Call, with the following subkeys:
-    - `url`: The URL of the Element Call instance to use for native group calls. This option is considered experimental
-      and may be removed at any time without notice. Defaults to `https://call.element.io`.
     - `use_exclusively`: A boolean specifying whether Element Call should be used exclusively as the only VoIP stack in
       the app, removing the ability to start legacy 1:1 calls or Jitsi calls. Defaults to `false`.
     - `participant_limit`: The maximum number of users who can join a call; if
@@ -447,8 +450,7 @@ If you would like to use Scalar, the integration manager maintained by Element, 
         "https://scalar.vector.im/_matrix/integrations/v1",
         "https://scalar.vector.im/api",
         "https://scalar-staging.vector.im/_matrix/integrations/v1",
-        "https://scalar-staging.vector.im/api",
-        "https://scalar-staging.riot.im/scalar/api"
+        "https://scalar-staging.vector.im/api"
     ]
 }
 ```
@@ -592,3 +594,4 @@ The following are undocumented or intended for developer use only.
 2. `sync_timeline_limit`
 3. `dangerously_allow_unsafe_and_insecure_passwords`
 4. `latex_maths_delims`: An optional setting to override the default delimiters used for maths parsing. See https://github.com/matrix-org/matrix-react-sdk/pull/5939 for details. Only used when `feature_latex_maths` is enabled.
+5. `modules`: An optional list of modules to load. This is used for testing and development purposes only.

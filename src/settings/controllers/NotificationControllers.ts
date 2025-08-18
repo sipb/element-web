@@ -3,25 +3,22 @@ Copyright 2024 New Vector Ltd.
 Copyright 2020 The Matrix.org Foundation C.I.C.
 Copyright 2017 Travis Ralston
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import { logger } from "matrix-js-sdk/src/logger";
-// XXX: This feels wrong.
-import { PushProcessor } from "matrix-js-sdk/src/pushprocessor";
 import { PushRuleActionName } from "matrix-js-sdk/src/matrix";
 
 import SettingController from "./SettingController";
 import { MatrixClientPeg } from "../../MatrixClientPeg";
-import { SettingLevel } from "../SettingLevel";
+import { type SettingLevel } from "../SettingLevel";
 
 // .m.rule.master being enabled means all events match that push rule
 // default action on this rule is dont_notify, but it could be something else
 export function isPushNotifyDisabled(): boolean {
     // Return the value of the master push rule as a default
-    const processor = new PushProcessor(MatrixClientPeg.safeGet());
-    const masterRule = processor.getPushRuleById(".m.rule.master");
+    const masterRule = MatrixClientPeg.safeGet().pushProcessor.getPushRuleById(".m.rule.master");
 
     if (!masterRule) {
         logger.warn("No master push rule! Notifications are disabled for this user.");

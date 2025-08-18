@@ -2,7 +2,7 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -10,19 +10,24 @@ Please see LICENSE files in the repository root for full details.
 // https://github.com/dumbmatter/fakeIndexedDB?tab=readme-ov-file#jsdom-often-used-with-jest
 import "core-js/stable/structured-clone";
 import "fake-indexeddb/auto";
-import React, { ComponentProps } from "react";
-import { fireEvent, render, RenderResult, screen, waitFor, within, act } from "jest-matrix-react";
+import React, { type ComponentProps } from "react";
+import { fireEvent, render, type RenderResult, screen, waitFor, within, act } from "jest-matrix-react";
 import fetchMock from "fetch-mock-jest";
-import { Mocked, mocked } from "jest-mock";
-import { ClientEvent, MatrixClient, MatrixEvent, Room, SyncState } from "matrix-js-sdk/src/matrix";
-import { MediaHandler } from "matrix-js-sdk/src/webrtc/mediaHandler";
+import { type Mocked, mocked } from "jest-mock";
+import { ClientEvent, type MatrixClient, MatrixEvent, Room, SyncState } from "matrix-js-sdk/src/matrix";
+import { type MediaHandler } from "matrix-js-sdk/src/webrtc/mediaHandler";
 import * as MatrixJs from "matrix-js-sdk/src/matrix";
 import { completeAuthorizationCodeGrant } from "matrix-js-sdk/src/oidc/authorize";
 import { logger } from "matrix-js-sdk/src/logger";
 import { OidcError } from "matrix-js-sdk/src/oidc/error";
-import { BearerTokenResponse } from "matrix-js-sdk/src/oidc/validate";
-import { defer, IDeferred, sleep } from "matrix-js-sdk/src/utils";
-import { CryptoEvent, UserVerificationStatus } from "matrix-js-sdk/src/crypto-api";
+import { type BearerTokenResponse } from "matrix-js-sdk/src/oidc/validate";
+import { sleep } from "matrix-js-sdk/src/utils";
+import {
+    CryptoEvent,
+    type DeviceVerificationStatus,
+    UserVerificationStatus,
+    type CryptoApi,
+} from "matrix-js-sdk/src/crypto-api";
 
 import MatrixChat from "../../../../src/components/structures/MatrixChat";
 import * as StorageAccess from "../../../../src/utils/StorageAccess";
@@ -46,7 +51,7 @@ import * as leaveRoomUtils from "../../../../src/utils/leave-behaviour";
 import { OidcClientError } from "../../../../src/utils/oidc/error";
 import LegacyCallHandler from "../../../../src/LegacyCallHandler";
 import { CallStore } from "../../../../src/stores/CallStore";
-import { Call } from "../../../../src/models/Call";
+import { type Call } from "../../../../src/models/Call";
 import { PosthogAnalytics } from "../../../../src/PosthogAnalytics";
 import PlatformPeg from "../../../../src/PlatformPeg";
 import EventIndexPeg from "../../../../src/indexing/EventIndexPeg";
@@ -60,8 +65,14 @@ import { ReleaseAnnouncementStore } from "../../../../src/stores/ReleaseAnnounce
 import { DRAFT_LAST_CLEANUP_KEY } from "../../../../src/DraftCleaner";
 import { UIFeature } from "../../../../src/settings/UIFeature";
 import AutoDiscoveryUtils from "../../../../src/utils/AutoDiscoveryUtils";
-import { ValidatedServerConfig } from "../../../../src/utils/ValidatedServerConfig";
+import { type ValidatedServerConfig } from "../../../../src/utils/ValidatedServerConfig";
 import Modal from "../../../../src/Modal.tsx";
+import { SetupEncryptionStore } from "../../../../src/stores/SetupEncryptionStore.ts";
+import { ShareFormat } from "../../../../src/dispatcher/payloads/SharePayload.ts";
+import { clearStorage } from "../../../../src/Lifecycle";
+import RoomListStore from "../../../../src/stores/room-list/RoomListStore.ts";
+import UserSettingsDialog from "../../../../src/components/views/dialogs/UserSettingsDialog.tsx";
+import { SdkContextClass } from "../../../../src/contexts/SDKContext.ts";
 
 jest.mock("matrix-js-sdk/src/oidc/authorize", () => ({
     completeAuthorizationCodeGrant: jest.fn(),
@@ -79,7 +90,7 @@ describe("<MatrixChat />", () => {
     const deviceId = "qwertyui";
     const accessToken = "abc123";
     const refreshToken = "def456";
-    let bootstrapDeferred: IDeferred<void>;
+    let bootstrapDeferred: PromiseWithResolvers<void>;
     // reused in createClient mock below
     const getMockClientMethods = () => ({
         ...mockClientMethodsUser(userId),
@@ -112,23 +123,23 @@ describe("<MatrixChat />", () => {
             startup: jest.fn(),
         },
         login: jest.fn(),
-        loginFlows: jest.fn(),
+        loginFlows: jest.fn().mockResolvedValue({ flows: [] }),
         isGuest: jest.fn().mockReturnValue(false),
         clearStores: jest.fn(),
         setGuest: jest.fn(),
         setNotifTimelineSet: jest.fn(),
         getAccountData: jest.fn(),
-        doesServerSupportUnstableFeature: jest.fn(),
+        doesServerSupportUnstableFeature: jest.fn().mockResolvedValue(false),
         getDevices: jest.fn().mockResolvedValue({ devices: [] }),
         getProfileInfo: jest.fn().mockResolvedValue({
             displayname: "Ernie",
         }),
         getVisibleRooms: jest.fn().mockReturnValue([]),
         getRooms: jest.fn().mockReturnValue([]),
-        setGlobalErrorOnUnknownDevices: jest.fn(),
         getCrypto: jest.fn().mockReturnValue({
             getVerificationRequestsToDeviceInProgress: jest.fn().mockReturnValue([]),
             isCrossSigningReady: jest.fn().mockReturnValue(false),
+            isDehydrationSupported: jest.fn().mockReturnValue(false),
             getUserDeviceInfo: jest.fn().mockReturnValue(new Map()),
             getUserVerificationStatus: jest.fn().mockResolvedValue(new UserVerificationStatus(false, false, false)),
             getVersion: jest.fn().mockReturnValue("1"),
@@ -148,6 +159,7 @@ describe("<MatrixChat />", () => {
         whoami: jest.fn(),
         logout: jest.fn(),
         getDeviceId: jest.fn(),
+        forget: () => Promise.resolve(),
     });
     let mockClient: Mocked<MatrixClient>;
     const serverConfig = {
@@ -159,12 +171,9 @@ describe("<MatrixChat />", () => {
         isNameResolvable: true,
         warning: "",
     };
-    let initPromise: Promise<void> | undefined;
     let defaultProps: ComponentProps<typeof MatrixChat>;
     const getComponent = (props: Partial<ComponentProps<typeof MatrixChat>> = {}) => {
-        // MatrixChat does many questionable things which bomb tests in modern React mode,
-        // we'll want to refactor and break up MatrixChat before turning off legacyRoot mode
-        return render(<MatrixChat {...defaultProps} {...props} />, { legacyRoot: true });
+        return render(<MatrixChat {...defaultProps} {...props} />);
     };
 
     // make test results readable
@@ -214,6 +223,11 @@ describe("<MatrixChat />", () => {
     };
 
     beforeEach(async () => {
+        await clearStorage();
+        Lifecycle.setSessionLockNotStolen();
+
+        localStorage.clear();
+        jest.restoreAllMocks();
         defaultProps = {
             config: {
                 brand: "Test",
@@ -229,10 +243,8 @@ describe("<MatrixChat />", () => {
             onNewScreen: jest.fn(),
             onTokenLoginCompleted: jest.fn(),
             realQueryParams: {},
-            initPromiseCallback: (p: Promise<void>) => (initPromise = p),
         };
 
-        initPromise = undefined;
         mockClient = getMockClientWithEventEmitter(getMockClientMethods());
         jest.spyOn(MatrixJs, "createClient").mockReturnValue(mockClient);
 
@@ -245,29 +257,30 @@ describe("<MatrixChat />", () => {
             {} as ValidatedServerConfig,
         );
 
-        bootstrapDeferred = defer();
+        bootstrapDeferred = Promise.withResolvers();
 
         await clearAllModals();
     });
 
     afterEach(async () => {
-        // Wait for the promise that MatrixChat gives us to complete so that we know
-        // it's finished running its login code. We either need to do this or make the
-        // login code abort halfway through once the test finishes testing whatever it
-        // needs to test. If we do nothing, the login code will just continue running
-        // and interfere with the subsequent tests.
-        await initPromise;
-
         // @ts-ignore
         DMRoomMap.setShared(null);
-
-        jest.restoreAllMocks();
 
         // emit a loggedOut event so that all of the Store singletons forget about their references to the mock client
         // (must be sync otherwise the next test will start before it happens)
         act(() => defaultDispatcher.dispatch({ action: Action.OnLoggedOut }, true));
 
         localStorage.clear();
+
+        // This is a massive hack, but ...
+        //
+        // A lot of these tests end up completing while the login flow is still proceeding. So then, we start the next
+        // test while stuff is still ongoing from the previous test, which messes up the current test (by changing
+        // localStorage or opening modals, or whatever).
+        //
+        // There is no obvious event we could wait for which indicates that everything has completed, since each test
+        // does something different. Instead...
+        await act(() => sleep(200));
     });
 
     resetJsDomAfterEach();
@@ -307,7 +320,6 @@ describe("<MatrixChat />", () => {
             state: state,
         };
 
-        const userId = "@alice:server.org";
         const deviceId = "test-device-id";
         const accessToken = "test-access-token-from-oidc";
 
@@ -328,9 +340,7 @@ describe("<MatrixChat />", () => {
             await flushPromises();
             const dialog = await screen.findByRole("dialog");
 
-            expect(within(dialog).getByText(errorMessage)).toBeInTheDocument();
-            // just check we're back on welcome page
-            await expect(screen.findByTestId("mx_welcome_screen")).resolves.toBeInTheDocument();
+            await waitFor(() => expect(within(dialog).getByText(errorMessage)).toBeInTheDocument());
         };
 
         beforeEach(() => {
@@ -353,10 +363,6 @@ describe("<MatrixChat />", () => {
                     },
                 });
 
-            jest.spyOn(logger, "error").mockClear();
-        });
-
-        beforeEach(() => {
             loginClient = getMockClientWithEventEmitter(getMockClientMethods());
             // this is used to create a temporary client during login
             jest.spyOn(MatrixJs, "createClient").mockReturnValue(loginClient);
@@ -493,25 +499,32 @@ describe("<MatrixChat />", () => {
                 );
             });
 
+            afterEach(() => {
+                SettingsStore.reset();
+            });
+
             it("should persist login credentials", async () => {
                 getComponent({ realQueryParams });
 
-                await waitFor(() => expect(localStorage.getItem("mx_hs_url")).toEqual(homeserverUrl));
+                await waitFor(() => expect(localStorage.getItem("mx_device_id")).toEqual(deviceId));
+                expect(localStorage.getItem("mx_hs_url")).toEqual(homeserverUrl);
                 expect(localStorage.getItem("mx_user_id")).toEqual(userId);
                 expect(localStorage.getItem("mx_has_access_token")).toEqual("true");
-                expect(localStorage.getItem("mx_device_id")).toEqual(deviceId);
             });
 
             it("should store clientId and issuer in session storage", async () => {
                 getComponent({ realQueryParams });
 
                 await waitFor(() => expect(localStorage.getItem("mx_oidc_client_id")).toEqual(clientId));
-                expect(localStorage.getItem("mx_oidc_token_issuer")).toEqual(issuer);
+                await waitFor(() => expect(localStorage.getItem("mx_oidc_token_issuer")).toEqual(issuer));
             });
 
             it("should set logged in and start MatrixClient", async () => {
                 getComponent({ realQueryParams });
 
+                defaultDispatcher.dispatch({
+                    action: "will_start_client",
+                });
                 // client successfully started
                 await waitFor(() =>
                     expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({ action: "client_started" }),
@@ -591,9 +604,7 @@ describe("<MatrixChat />", () => {
             // wait for logged in view to load
             await screen.findByLabelText("User menu");
 
-            expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-            const h1Element = screen.getByRole("heading", { level: 1 });
-            expect(h1Element).toHaveTextContent(`Welcome Ernie`);
+            await screen.findByRole("heading", { level: 1, name: "Welcome Ernie" });
         });
 
         describe("clean up drafts", () => {
@@ -605,9 +616,6 @@ describe("<MatrixChat />", () => {
                 localStorage.setItem(`mx_cider_state_${unknownRoomId}`, "fake_content");
                 localStorage.setItem(`mx_cider_state_${roomId}`, "fake_content");
                 mockClient.getRoom.mockImplementation((id) => [room].find((room) => room.roomId === id) || null);
-            });
-            afterEach(() => {
-                jest.restoreAllMocks();
             });
             it("should clean up drafts", async () => {
                 Date.now = jest.fn(() => timestamp);
@@ -644,22 +652,29 @@ describe("<MatrixChat />", () => {
         });
 
         describe("onAction()", () => {
-            beforeEach(() => {
-                jest.spyOn(defaultDispatcher, "dispatch").mockClear();
-                jest.spyOn(defaultDispatcher, "fire").mockClear();
+            afterEach(() => {
+                jest.restoreAllMocks();
             });
-            it("should open user device settings", async () => {
+
+            it("ViewUserDeviceSettings should open user device settings", async () => {
                 await getComponentAndWaitForReady();
 
-                defaultDispatcher.dispatch({
-                    action: Action.ViewUserDeviceSettings,
-                });
+                const createDialog = jest.spyOn(Modal, "createDialog").mockReturnValue({} as any);
 
-                await flushPromises();
+                await act(async () => {
+                    defaultDispatcher.dispatch({
+                        action: Action.ViewUserDeviceSettings,
+                    });
 
-                expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({
-                    action: Action.ViewUserSettings,
-                    initialTabId: UserTab.SessionManager,
+                    await waitFor(() =>
+                        expect(createDialog).toHaveBeenCalledWith(
+                            UserSettingsDialog,
+                            { initialTabId: UserTab.SessionManager, sdkContext: expect.any(SdkContextClass) },
+                            /*className=*/ undefined,
+                            /*isPriority=*/ false,
+                            /*isStatic=*/ true,
+                        ),
+                    );
                 });
             });
 
@@ -676,10 +691,36 @@ describe("<MatrixChat />", () => {
                     jest.spyOn(spaceRoom, "isSpaceRoom").mockReturnValue(true);
 
                     jest.spyOn(ReleaseAnnouncementStore.instance, "getReleaseAnnouncement").mockReturnValue(null);
+                    (room as any).client = mockClient;
+                    (spaceRoom as any).client = mockClient;
                 });
 
-                afterEach(() => {
-                    jest.restoreAllMocks();
+                describe("forget_room", () => {
+                    it("should dispatch after_forget_room action on successful forget", async () => {
+                        await clearAllModals();
+                        await getComponentAndWaitForReady();
+
+                        // Mock out the old room list store
+                        jest.spyOn(RoomListStore.instance, "manualRoomUpdate").mockImplementation(async () => {});
+
+                        // Register a mock function to the dispatcher
+                        const fn = jest.fn();
+                        defaultDispatcher.register(fn);
+
+                        // Forge the room
+                        defaultDispatcher.dispatch({
+                            action: "forget_room",
+                            room_id: roomId,
+                        });
+
+                        // On success, we expect the following action to have been dispatched.
+                        await waitFor(() => {
+                            expect(fn).toHaveBeenCalledWith({
+                                action: Action.AfterForgetRoom,
+                                room: room,
+                            });
+                        });
+                    });
                 });
 
                 describe("leave_room", () => {
@@ -736,6 +777,22 @@ describe("<MatrixChat />", () => {
                                 ),
                             ).toBeInTheDocument();
                         });
+                        it("should warn when user is the last admin", async () => {
+                            jest.spyOn(room, "getJoinedMembers").mockReturnValue([
+                                { powerLevel: 100 } as unknown as MatrixJs.RoomMember,
+                                { powerLevel: 0 } as unknown as MatrixJs.RoomMember,
+                            ]);
+                            jest.spyOn(room, "getMember").mockReturnValue({
+                                powerLevel: 100,
+                            } as unknown as MatrixJs.RoomMember);
+                            dispatchAction();
+                            await screen.findByRole("dialog");
+                            expect(
+                                screen.getByText(
+                                    "You're the only administrator in this room. If you leave, nobody will be able to change room settings or take other important actions.",
+                                ),
+                            ).toBeInTheDocument();
+                        });
                         it("should do nothing on cancel", async () => {
                             dispatchAction();
                             const dialog = await screen.findByRole("dialog");
@@ -788,6 +845,108 @@ describe("<MatrixChat />", () => {
                                 ),
                             ).toBeInTheDocument();
                         });
+                    });
+                });
+
+                it("should open forward dialog when text message shared", async () => {
+                    await getComponentAndWaitForReady();
+                    defaultDispatcher.dispatch({ action: Action.Share, format: ShareFormat.Text, msg: "Hello world" });
+                    await waitFor(() => {
+                        expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({
+                            action: Action.OpenForwardDialog,
+                            event: expect.any(MatrixEvent),
+                            permalinkCreator: null,
+                        });
+                    });
+                    const forwardCall = mocked(defaultDispatcher.dispatch).mock.calls.find(
+                        ([call]) => call.action === Action.OpenForwardDialog,
+                    );
+
+                    const payload = forwardCall?.[0];
+
+                    expect(payload!.event.getContent()).toEqual({
+                        msgtype: MatrixJs.MsgType.Text,
+                        body: "Hello world",
+                    });
+                });
+
+                it("should open forward dialog when html message shared", async () => {
+                    await getComponentAndWaitForReady();
+                    defaultDispatcher.dispatch({ action: Action.Share, format: ShareFormat.Html, msg: "Hello world" });
+                    await waitFor(() => {
+                        expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({
+                            action: Action.OpenForwardDialog,
+                            event: expect.any(MatrixEvent),
+                            permalinkCreator: null,
+                        });
+                    });
+                    const forwardCall = mocked(defaultDispatcher.dispatch).mock.calls.find(
+                        ([call]) => call.action === Action.OpenForwardDialog,
+                    );
+
+                    const payload = forwardCall?.[0];
+
+                    expect(payload!.event.getContent()).toEqual({
+                        msgtype: MatrixJs.MsgType.Text,
+                        format: "org.matrix.custom.html",
+                        body: expect.stringContaining("Hello world"),
+                        formatted_body: expect.stringContaining("Hello world"),
+                    });
+                });
+
+                it("should open forward dialog when markdown message shared", async () => {
+                    await getComponentAndWaitForReady();
+                    defaultDispatcher.dispatch({
+                        action: Action.Share,
+                        format: ShareFormat.Markdown,
+                        msg: "Hello *world*",
+                    });
+                    await waitFor(() => {
+                        expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({
+                            action: Action.OpenForwardDialog,
+                            event: expect.any(MatrixEvent),
+                            permalinkCreator: null,
+                        });
+                    });
+                    const forwardCall = mocked(defaultDispatcher.dispatch).mock.calls.find(
+                        ([call]) => call.action === Action.OpenForwardDialog,
+                    );
+
+                    const payload = forwardCall?.[0];
+
+                    expect(payload!.event.getContent()).toEqual({
+                        msgtype: MatrixJs.MsgType.Text,
+                        format: "org.matrix.custom.html",
+                        body: "Hello *world*",
+                        formatted_body: "Hello <em>world</em>",
+                    });
+                });
+
+                it("should strip malicious tags from shared html message", async () => {
+                    await getComponentAndWaitForReady();
+                    defaultDispatcher.dispatch({
+                        action: Action.Share,
+                        format: ShareFormat.Html,
+                        msg: `evil<script src="http://evil.dummy/bad.js" />`,
+                    });
+                    await waitFor(() => {
+                        expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({
+                            action: Action.OpenForwardDialog,
+                            event: expect.any(MatrixEvent),
+                            permalinkCreator: null,
+                        });
+                    });
+                    const forwardCall = mocked(defaultDispatcher.dispatch).mock.calls.find(
+                        ([call]) => call.action === Action.OpenForwardDialog,
+                    );
+
+                    const payload = forwardCall?.[0];
+
+                    expect(payload!.event.getContent()).toEqual({
+                        msgtype: MatrixJs.MsgType.Text,
+                        format: "org.matrix.custom.html",
+                        body: "evil",
+                        formatted_body: "evil",
                     });
                 });
             });
@@ -894,12 +1053,150 @@ describe("<MatrixChat />", () => {
         });
 
         describe("unskippable verification", () => {
-            it("should show the complete security screen if unskippable verification is enabled", async () => {
+            beforeEach(() => {
+                // Force verification is turned on in settings
                 defaultProps.config.force_verification = true;
+
+                // And this device is being force-verified (because it logged in after
+                // enforcement was turned on).
                 localStorage.setItem("must_verify_device", "true");
+
+                // lostKeys returns false, meaning there are other devices to verify against
+                const realStore = SetupEncryptionStore.sharedInstance();
+                jest.spyOn(realStore, "lostKeys").mockReturnValue(false);
+            });
+
+            afterEach(() => {
+                jest.restoreAllMocks();
+                // Reset things back to how they were before we started
+                defaultProps.config.force_verification = false;
+                localStorage.removeItem("must_verify_device");
+            });
+
+            it("should show the Complete Security screen if unskippable verification is enabled", async () => {
+                // Given we have force verification on, and an existing logged-in session
+                // that is not verified (see beforeEach())
+
+                // When we render MatrixChat
                 getComponent();
 
-                await screen.findByRole("heading", { name: "Unable to verify this device", level: 1 });
+                // Then we are asked to verify our device
+                await screen.findByRole("heading", { name: "Verify this device", level: 1 });
+
+                // Sanity: we are not racing with another screen update, so this heading stays visible
+                await screen.findByRole("heading", { name: "Verify this device", level: 1 });
+            });
+            it("should not open app after cancelling device verify if unskippable verification is on", async () => {
+                // See https://github.com/element-hq/element-web/issues/29230
+                // We used to allow bypassing force verification by choosing "Verify with
+                // another device" and not completing the verification.
+
+                // Given we have force verification on, and an existing logged-in session
+                // that is not verified (see beforeEach())
+
+                // And our crypto is set up
+                mockClient.getCrypto.mockReturnValue(createMockCrypto());
+
+                // And MatrixChat is rendered
+                getComponent();
+
+                // When we click "Verify with another device"
+                await screen.findByRole("heading", { name: "Verify this device", level: 1 });
+                const verify = screen.getByRole("button", { name: "Verify with another device" });
+                act(() => verify.click());
+
+                // And close the device verification dialog
+                const closeButton = await screen.findByRole("button", { name: "Close dialog" });
+                act(() => closeButton.click());
+
+                // Then we are not allowed in - we are still being asked to verify
+                await screen.findByRole("heading", { name: "Verify this device", level: 1 });
+            });
+
+            describe("when query params have a loginToken", () => {
+                const loginToken = "test-login-token";
+                const realQueryParams = {
+                    loginToken,
+                };
+
+                let loginClient!: ReturnType<typeof getMockClientWithEventEmitter>;
+                const deviceId = "test-device-id";
+                const accessToken = "test-access-token";
+                const clientLoginResponse = {
+                    user_id: userId,
+                    device_id: deviceId,
+                    access_token: accessToken,
+                };
+
+                beforeEach(() => {
+                    localStorage.setItem("mx_sso_hs_url", serverConfig.hsUrl);
+                    localStorage.setItem("mx_sso_is_url", serverConfig.isUrl);
+                    loginClient = getMockClientWithEventEmitter(getMockClientMethods());
+                    // this is used to create a temporary client during login
+                    jest.spyOn(MatrixJs, "createClient").mockReturnValue(loginClient);
+
+                    loginClient.login.mockClear().mockResolvedValue(clientLoginResponse);
+                });
+
+                it("should show the Complete Security screen after OIDC login if unskippable ver. is on", async () => {
+                    // Given force_verification is on (outer describe)
+                    // And we just logged in via OIDC (inner describe)
+
+                    // When we load the page
+                    getComponent({ realQueryParams });
+
+                    defaultDispatcher.dispatch({
+                        action: "will_start_client",
+                    });
+                    await waitFor(() =>
+                        expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({ action: "client_started" }),
+                    );
+
+                    // Then we are not allowed in - we are being asked to verify
+                    await screen.findByRole("heading", { name: "Verify this device", level: 1 });
+                });
+            });
+
+            function createMockCrypto(): CryptoApi {
+                return {
+                    getVersion: jest.fn().mockReturnValue("Version 0"),
+                    getVerificationRequestsToDeviceInProgress: jest.fn().mockReturnValue([]),
+                    getUserDeviceInfo: jest.fn().mockReturnValue({
+                        get: jest
+                            .fn()
+                            .mockReturnValue(
+                                new Map([
+                                    ["devid", { dehydrated: false, getIdentityKey: jest.fn().mockReturnValue("k") }],
+                                ]),
+                            ),
+                    }),
+                    getUserVerificationStatus: jest
+                        .fn()
+                        .mockResolvedValue(new UserVerificationStatus(true, true, false)),
+                    setDeviceIsolationMode: jest.fn(),
+                    isDehydrationSupported: jest.fn().mockReturnValue(false),
+                    getDeviceVerificationStatus: jest
+                        .fn()
+                        .mockResolvedValue({ signedByOwner: true } as DeviceVerificationStatus),
+                    isCrossSigningReady: jest.fn().mockReturnValue(false),
+                    requestOwnUserVerification: jest.fn().mockResolvedValue({ cancel: jest.fn() }),
+                } as any;
+            }
+        });
+
+        describe("showScreen", () => {
+            it("should show the 'share' screen", async () => {
+                await getComponent({
+                    initialScreenAfterLogin: { screen: "share", params: { msg: "Hello", format: ShareFormat.Text } },
+                });
+
+                await waitFor(() => {
+                    expect(defaultDispatcher.dispatch).toHaveBeenCalledWith({
+                        action: "share",
+                        msg: "Hello",
+                        format: ShareFormat.Text,
+                    });
+                });
             });
         });
     });
@@ -1003,7 +1300,10 @@ describe("<MatrixChat />", () => {
                     userHasCrossSigningKeys: jest.fn().mockResolvedValue(false),
                     // This needs to not finish immediately because we need to test the screen appears
                     bootstrapCrossSigning: jest.fn().mockImplementation(() => bootstrapDeferred.promise),
+                    resetKeyBackup: jest.fn(),
                     isEncryptionEnabledInRoom: jest.fn().mockResolvedValue(false),
+                    checkKeyBackupAndEnable: jest.fn().mockResolvedValue(null),
+                    isDehydrationSupported: jest.fn().mockReturnValue(false),
                 };
                 loginClient.getCrypto.mockReturnValue(mockCrypto as any);
             });
@@ -1024,8 +1324,6 @@ describe("<MatrixChat />", () => {
                 expect(loginClient.doesServerSupportUnstableFeature).toHaveBeenCalledWith(
                     "org.matrix.e2e_cross_signing",
                 );
-
-                await flushPromises();
 
                 // logged in
                 await screen.findByLabelText("User menu");
@@ -1112,19 +1410,6 @@ describe("<MatrixChat />", () => {
                 // set up keys screen is rendered
                 expect(screen.getByText("Setting up keys")).toBeInTheDocument();
             });
-
-            it("should go to use case selection if user just registered", async () => {
-                loginClient.doesServerSupportUnstableFeature.mockResolvedValue(true);
-                MatrixClientPeg.setJustRegisteredUserId(userId);
-
-                await getComponentAndLogin();
-
-                bootstrapDeferred.resolve();
-
-                await expect(
-                    screen.findByRole("heading", { name: "You're in", level: 1 }),
-                ).resolves.toBeInTheDocument();
-            });
         });
     });
 
@@ -1135,7 +1420,6 @@ describe("<MatrixChat />", () => {
         };
 
         let loginClient!: ReturnType<typeof getMockClientWithEventEmitter>;
-        const userId = "@alice:server.org";
         const deviceId = "test-device-id";
         const accessToken = "test-access-token";
         const clientLoginResponse = {
@@ -1229,6 +1513,7 @@ describe("<MatrixChat />", () => {
                     },
                 );
             });
+
             it("should clear storage", async () => {
                 const localStorageClearSpy = jest.spyOn(localStorage.__proto__, "clear");
 
@@ -1274,6 +1559,9 @@ describe("<MatrixChat />", () => {
 
             it("should continue to post login setup when no session is found in local storage", async () => {
                 getComponent({ realQueryParams });
+                defaultDispatcher.dispatch({
+                    action: "will_start_client",
+                });
 
                 // logged in but waiting for sync screen
                 await screen.findByText("Logout");
@@ -1348,6 +1636,7 @@ describe("<MatrixChat />", () => {
             Lifecycle.setSessionLockNotStolen();
         });
 
+        // Flaky test, see https://github.com/element-hq/element-web/issues/30337
         it("waits for other tab to stop during startup", async () => {
             fetchMock.get("/welcome.html", { body: "<h1>Hello</h1>" });
             jest.spyOn(Lifecycle, "attemptDelegatedAuthLogin");
@@ -1450,7 +1739,7 @@ describe("<MatrixChat />", () => {
                 jest.spyOn(MatrixJs, "createClient").mockReturnValue(client);
 
                 // intercept initCrypto and have it block until we complete the deferred
-                const initCryptoCompleteDefer = defer();
+                const initCryptoCompleteDefer = Promise.withResolvers<void>();
                 const initCryptoCalled = new Promise<void>((resolve) => {
                     client.initRustCrypto.mockImplementation(() => {
                         resolve();
@@ -1491,7 +1780,7 @@ describe("<MatrixChat />", () => {
         };
 
         const enabledMobileRegistration = (): void => {
-            jest.spyOn(SettingsStore, "getValue").mockImplementation((settingName: string) => {
+            jest.spyOn(SettingsStore, "getValue").mockImplementation((settingName): any => {
                 if (settingName === "Registration.mobileRegistrationHelper") return true;
                 if (settingName === UIFeature.Registration) return true;
             });
@@ -1529,8 +1818,13 @@ describe("<MatrixChat />", () => {
             });
             await flushPromises();
             mockClient.emit(CryptoEvent.KeyBackupFailed, "error code");
-            await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
-            expect((spy.mock.lastCall![0] as any)._payload._result).toEqual(expect.objectContaining({ __test: true }));
+            await waitFor(() =>
+                expect(spy).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        _payload: expect.objectContaining({ _result: expect.objectContaining({ __test: true }) }),
+                    }),
+                ),
+            );
         });
 
         it("should show the recovery method removed dialog", async () => {
@@ -1547,8 +1841,13 @@ describe("<MatrixChat />", () => {
             });
             await flushPromises();
             mockClient.emit(CryptoEvent.KeyBackupFailed, "error code");
-            await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
-            expect((spy.mock.lastCall![0] as any)._payload._result).toEqual(expect.objectContaining({ __test: true }));
+            await waitFor(() =>
+                expect(spy).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        _payload: expect.objectContaining({ _result: expect.objectContaining({ __test: true }) }),
+                    }),
+                ),
+            );
         });
     });
 });

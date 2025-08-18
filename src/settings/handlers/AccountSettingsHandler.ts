@@ -1,20 +1,20 @@
 /*
-Copyright 2024 New Vector Ltd.
+Copyright 2024, 2025 New Vector Ltd.
 Copyright 2019, 2020 The Matrix.org Foundation C.I.C.
 Copyright 2017 Travis Ralston
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import { ClientEvent, MatrixClient, MatrixEvent } from "matrix-js-sdk/src/matrix";
-import { defer } from "matrix-js-sdk/src/utils";
+import { type AccountDataEvents, ClientEvent, type MatrixClient, type MatrixEvent } from "matrix-js-sdk/src/matrix";
 import { isEqual } from "lodash";
 
 import MatrixClientBackedSettingsHandler from "./MatrixClientBackedSettingsHandler";
 import { objectClone, objectKeyChanges } from "../../utils/objects";
 import { SettingLevel } from "../SettingLevel";
-import { WatchManager } from "../WatchManager";
+import { type WatchManager } from "../WatchManager";
+import { MEDIA_PREVIEW_ACCOUNT_DATA_TYPE } from "../../@types/media_preview";
 
 const BREADCRUMBS_LEGACY_EVENT_TYPE = "im.vector.riot.breadcrumb_rooms";
 const BREADCRUMBS_EVENT_TYPE = "im.vector.setting.breadcrumbs";
@@ -68,6 +68,8 @@ export default class AccountSettingsHandler extends MatrixClientBackedSettingsHa
         } else if (event.getType() === RECENT_EMOJI_EVENT_TYPE) {
             const val = event.getContent()["enabled"];
             this.watchers.notifyUpdate("recent_emoji", null, SettingLevel.ACCOUNT, val);
+        } else if (event.getType() === MEDIA_PREVIEW_ACCOUNT_DATA_TYPE) {
+            this.watchers.notifyUpdate("mediaPreviewConfig", null, SettingLevel.ROOM_ACCOUNT, event.getContent());
         }
     };
 
@@ -140,11 +142,11 @@ export default class AccountSettingsHandler extends MatrixClientBackedSettingsHa
     }
 
     // helper function to set account data then await it being echoed back
-    private async setAccountData(
-        eventType: string,
-        field: string,
-        value: any,
-        legacyEventType?: string,
+    private async setAccountData<K extends keyof AccountDataEvents, F extends keyof AccountDataEvents[K]>(
+        eventType: K,
+        field: F,
+        value: AccountDataEvents[K][F],
+        legacyEventType?: keyof AccountDataEvents,
     ): Promise<void> {
         let content = this.getSettings(eventType);
         if (legacyEventType && !content?.[field]) {
@@ -159,9 +161,10 @@ export default class AccountSettingsHandler extends MatrixClientBackedSettingsHa
 
         // Attach a deferred *before* setting the account data to ensure we catch any requests
         // which race between different lines.
-        const deferred = defer<void>();
+        const deferred = Promise.withResolvers<void>();
         const handler = (event: MatrixEvent): void => {
-            if (event.getType() !== eventType || !isEqual(event.getContent()[field], value)) return;
+            if (event.getType() !== eventType || !isEqual(event.getContent<AccountDataEvents[K]>()[field], value))
+                return;
             this.client.off(ClientEvent.AccountData, handler);
             deferred.resolve();
         };
@@ -172,7 +175,7 @@ export default class AccountSettingsHandler extends MatrixClientBackedSettingsHa
         await deferred.promise;
     }
 
-    public setValue(settingName: string, roomId: string, newValue: any): Promise<void> {
+    public async setValue(settingName: string, roomId: string, newValue: any): Promise<void> {
         switch (settingName) {
             // Special case URL previews
             case "urlPreviewsEnabled":
@@ -198,7 +201,12 @@ export default class AccountSettingsHandler extends MatrixClientBackedSettingsHa
             // Special case analytics
             case "pseudonymousAnalyticsOptIn":
                 return this.setAccountData(ANALYTICS_EVENT_TYPE, "pseudonymousAnalyticsOptIn", newValue);
-
+            case "mediaPreviewConfig":
+                // Handled in MediaPreviewConfigController.
+                return;
+            case "inviteRules":
+                // Handled in InviteRulesConfigController.
+                return;
             default:
                 return this.setAccountData(DEFAULT_SETTINGS_EVENT_TYPE, settingName, newValue);
         }
@@ -212,7 +220,7 @@ export default class AccountSettingsHandler extends MatrixClientBackedSettingsHa
         return this.client && !this.client.isGuest();
     }
 
-    private getSettings(eventType = "im.vector.web.settings"): any {
+    private getSettings(eventType: keyof AccountDataEvents = "im.vector.web.settings"): any {
         // TODO: [TS] Types on return
         if (!this.client) return null;
 

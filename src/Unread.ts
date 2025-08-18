@@ -2,16 +2,15 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2015-2023 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import { M_BEACON, Room, Thread, MatrixEvent, EventType, MatrixClient } from "matrix-js-sdk/src/matrix";
+import { M_BEACON, type Room, Thread, type MatrixEvent, EventType, type MatrixClient } from "matrix-js-sdk/src/matrix";
 import { logger } from "matrix-js-sdk/src/logger";
 
 import shouldHideEvent from "./shouldHideEvent";
 import { haveRendererForEvent } from "./events/EventTileFactory";
-import SettingsStore from "./settings/SettingsStore";
 import { RoomNotifState, getRoomNotifsState } from "./RoomNotifs";
 
 /**
@@ -40,16 +39,15 @@ export function eventTriggersUnreadCount(client: MatrixClient, ev: MatrixEvent):
     }
 
     if (ev.isRedacted()) return false;
-    return haveRendererForEvent(ev, client, false /* hidden messages should never trigger unread counts anyways */);
+    try {
+        return haveRendererForEvent(ev, client, false /* hidden messages should never trigger unread counts anyways */);
+    } catch (e) {
+        console.warn("Error determining if event should trigger unread count", e);
+        return false; // If we can't determine if the event should trigger an unread count, assume it does not.
+    }
 }
 
 export function doesRoomHaveUnreadMessages(room: Room, includeThreads: boolean): boolean {
-    if (SettingsStore.getValue("feature_sliding_sync")) {
-        // TODO: https://github.com/vector-im/element-web/issues/23207
-        // Sliding Sync doesn't support unread indicator dots (yet...)
-        return false;
-    }
-
     const toCheck: Array<Room | Thread> = [room];
     if (includeThreads) {
         toCheck.push(...room.getThreads());

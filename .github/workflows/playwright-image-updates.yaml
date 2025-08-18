@@ -10,20 +10,20 @@ jobs:
         permissions:
             pull-requests: write
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
             - name: Update synapse image
               run: |
                   docker pull "$IMAGE"
                   INSPECT=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE")
                   DIGEST=${INSPECT#*@}
-                  sed -i "s/const DOCKER_TAG.*/const DOCKER_TAG = \"develop@$DIGEST\";/" playwright/plugins/homeserver/synapse/index.ts
+                  sed -i "s/const TAG.*/const TAG = \"develop@$DIGEST\";/" playwright/testcontainers/synapse.ts
               env:
                   IMAGE: ghcr.io/element-hq/synapse:develop
 
             - name: Create Pull Request
               id: cpr
-              uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f # v7
+              uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7
               with:
                   token: ${{ secrets.ELEMENT_BOT_TOKEN }}
                   branch: actions/playwright-image-updates

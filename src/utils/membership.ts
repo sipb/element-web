@@ -2,12 +2,19 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2020-2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import { Room, RoomMember, RoomState, RoomStateEvent, MatrixEvent, MatrixClient } from "matrix-js-sdk/src/matrix";
-import { KnownMembership, Membership } from "matrix-js-sdk/src/types";
+import {
+    type Room,
+    type RoomMember,
+    type RoomState,
+    RoomStateEvent,
+    type MatrixEvent,
+    type MatrixClient,
+} from "matrix-js-sdk/src/matrix";
+import { KnownMembership, type Membership } from "matrix-js-sdk/src/types";
 
 import { MatrixClientPeg } from "../MatrixClientPeg";
 import SettingsStore from "../settings/SettingsStore";
@@ -123,4 +130,24 @@ export async function waitForMember(
     }).finally(() => {
         client.removeListener(RoomStateEvent.NewMember, handler);
     });
+}
+
+/**
+ * Check if the user is the only joined admin in the room
+ * This function will *not* cause lazy loading of room members, so if these should be included then
+ * the caller needs to make sure members have been loaded.
+ * @param room The room to check if the user is the only admin.
+ * @returns True if the user is the only user with the highest power level, false otherwise
+ */
+export function isOnlyAdmin(room: Room): boolean {
+    const currentUserLevel = room.getMember(room.client.getSafeUserId())?.powerLevel;
+
+    const userLevelValues = room.getJoinedMembers().map((m) => m.powerLevel);
+
+    const maxUserLevel = Math.max(...userLevelValues.filter((x) => typeof x === "number"));
+    // If the user is the only user with highest power level
+    return (
+        maxUserLevel === currentUserLevel &&
+        userLevelValues.lastIndexOf(maxUserLevel) == userLevelValues.indexOf(maxUserLevel)
+    );
 }

@@ -2,37 +2,27 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2022 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
 import React from "react";
-import { fireEvent, render, screen, cleanup, act, within, waitForElementToBeRemoved } from "jest-matrix-react";
+import { render, screen, act, waitForElementToBeRemoved } from "jest-matrix-react";
 import userEvent from "@testing-library/user-event";
-import { Mocked, mocked } from "jest-mock";
-import { Room, User, MatrixClient, RoomMember, MatrixEvent, EventType, Device } from "matrix-js-sdk/src/matrix";
-import { KnownMembership } from "matrix-js-sdk/src/types";
-import { defer } from "matrix-js-sdk/src/utils";
+import { type Mocked, mocked } from "jest-mock";
+import { type Room, User, type MatrixClient, RoomMember, Device } from "matrix-js-sdk/src/matrix";
 import { EventEmitter } from "events";
 import {
     UserVerificationStatus,
-    VerificationRequest,
+    type VerificationRequest,
     VerificationPhase as Phase,
     VerificationRequestEvent,
-    CryptoApi,
-    DeviceVerificationStatus,
+    type CryptoApi,
 } from "matrix-js-sdk/src/crypto-api";
 
 import UserInfo, {
-    BanToggleButton,
-    DeviceItem,
     disambiguateDevices,
     getPowerLevels,
-    isMuted,
-    PowerLevelEditor,
-    RoomAdminToolsContainer,
-    RoomKickButton,
-    UserInfoHeader,
     UserOptionsSection,
 } from "../../../../../src/components/views/right_panel/UserInfo";
 import dis from "../../../../../src/dispatcher/dispatcher";
@@ -40,9 +30,7 @@ import { RightPanelPhases } from "../../../../../src/stores/right-panel/RightPan
 import { MatrixClientPeg } from "../../../../../src/MatrixClientPeg";
 import MatrixClientContext from "../../../../../src/contexts/MatrixClientContext";
 import MultiInviter from "../../../../../src/utils/MultiInviter";
-import * as mockVerification from "../../../../../src/verification";
 import Modal from "../../../../../src/Modal";
-import { E2EStatus } from "../../../../../src/utils/ShieldUtils";
 import { DirectoryMember, startDmOnFirstMessage } from "../../../../../src/utils/direct-messages";
 import { clearAllModals, flushPromises } from "../../../../test-utils";
 import ErrorDialog from "../../../../../src/components/views/dialogs/ErrorDialog";
@@ -50,7 +38,6 @@ import { shouldShowComponent } from "../../../../../src/customisations/helpers/U
 import { UIComponent } from "../../../../../src/settings/UIFeature";
 import { Action } from "../../../../../src/dispatcher/actions";
 import { ShareDialog } from "../../../../../src/components/views/dialogs/ShareDialog";
-import BulkRedactDialog from "../../../../../src/components/views/dialogs/BulkRedactDialog";
 
 jest.mock("../../../../../src/utils/direct-messages", () => ({
     ...jest.requireActual("../../../../../src/utils/direct-messages"),
@@ -89,7 +76,6 @@ const defaultUserId = "@user:example.com";
 const defaultUser = new User(defaultUserId);
 
 let mockRoom: Mocked<Room>;
-let mockSpace: Mocked<Room>;
 let mockClient: Mocked<MatrixClient>;
 let mockCrypto: Mocked<CryptoApi>;
 const origDate = global.Date.prototype.toLocaleString;
@@ -99,23 +85,6 @@ beforeEach(() => {
         roomId: defaultRoomId,
         getType: jest.fn().mockReturnValue(undefined),
         isSpaceRoom: jest.fn().mockReturnValue(false),
-        getMember: jest.fn().mockReturnValue(undefined),
-        getMxcAvatarUrl: jest.fn().mockReturnValue("mock-avatar-url"),
-        name: "test room",
-        on: jest.fn(),
-        off: jest.fn(),
-        currentState: {
-            getStateEvents: jest.fn(),
-            on: jest.fn(),
-            off: jest.fn(),
-        },
-        getEventReadUpTo: jest.fn(),
-    } as unknown as Room);
-
-    mockSpace = mocked({
-        roomId: defaultRoomId,
-        getType: jest.fn().mockReturnValue("m.space"),
-        isSpaceRoom: jest.fn().mockReturnValue(true),
         getMember: jest.fn().mockReturnValue(undefined),
         getMxcAvatarUrl: jest.fn().mockReturnValue("mock-avatar-url"),
         name: "test room",
@@ -237,7 +206,10 @@ describe("<UserInfo />", () => {
                 _locale,
                 opts,
             ) {
-                return origDate.call(this, "en-US", opts);
+                return origDate.call(this, "en-US", {
+                    ...opts,
+                    hourCycle: "h12",
+                });
             });
             mockClient.doesServerSupportExtendedProfiles.mockResolvedValue(true);
             mockClient.getExtendedProfileProperty.mockResolvedValue("Europe/London");
@@ -437,20 +409,6 @@ describe("<UserInfo />", () => {
             mockCrypto.getUserDeviceInfo.mockResolvedValue(userDeviceMap);
         });
 
-        it("renders a device list which can be expanded", async () => {
-            renderComponent();
-            await flushPromises();
-
-            // check the button exists with the expected text
-            const devicesButton = screen.getByRole("button", { name: "1 session" });
-
-            // click it
-            await userEvent.click(devicesButton);
-
-            // there should now be a button with the device id which should contain the device name
-            expect(screen.getByRole("button", { name: "my device" })).toBeInTheDocument();
-        });
-
         it("renders <BasicUserInfo />", async () => {
             mockCrypto.getUserVerificationStatus.mockResolvedValue(new UserVerificationStatus(false, false, false));
 
@@ -460,188 +418,7 @@ describe("<UserInfo />", () => {
                 room: mockRoom,
             });
             await flushPromises();
-
-            await expect(screen.findByRole("button", { name: "Verify" })).resolves.toBeInTheDocument();
             expect(container).toMatchSnapshot();
-        });
-
-        describe("device dehydration", () => {
-            it("hides a verified dehydrated device (unverified user)", async () => {
-                const device1 = new Device({
-                    deviceId: "d1",
-                    userId: defaultUserId,
-                    displayName: "my device",
-                    algorithms: [],
-                    keys: new Map(),
-                });
-                const device2 = new Device({
-                    deviceId: "d2",
-                    userId: defaultUserId,
-                    displayName: "dehydrated device",
-                    algorithms: [],
-                    keys: new Map(),
-                    dehydrated: true,
-                });
-                const devicesMap = new Map<string, Device>([
-                    [device1.deviceId, device1],
-                    [device2.deviceId, device2],
-                ]);
-                const userDeviceMap = new Map<string, Map<string, Device>>([[defaultUserId, devicesMap]]);
-                mockCrypto.getUserDeviceInfo.mockResolvedValue(userDeviceMap);
-
-                renderComponent({ room: mockRoom });
-                await flushPromises();
-
-                // check the button exists with the expected text (the dehydrated device shouldn't be counted)
-                const devicesButton = screen.getByRole("button", { name: "1 session" });
-
-                // click it
-                await act(() => {
-                    return userEvent.click(devicesButton);
-                });
-
-                // there should now be a button with the non-dehydrated device ID
-                expect(screen.getByRole("button", { name: "my device" })).toBeInTheDocument();
-
-                // but not for the dehydrated device ID
-                expect(screen.queryByRole("button", { name: "dehydrated device" })).not.toBeInTheDocument();
-
-                // there should be a line saying that the user has "Offline device" enabled
-                expect(screen.getByText("Offline device enabled")).toBeInTheDocument();
-            });
-
-            it("hides a verified dehydrated device (verified user)", async () => {
-                const device1 = new Device({
-                    deviceId: "d1",
-                    userId: defaultUserId,
-                    displayName: "my device",
-                    algorithms: [],
-                    keys: new Map(),
-                });
-                const device2 = new Device({
-                    deviceId: "d2",
-                    userId: defaultUserId,
-                    displayName: "dehydrated device",
-                    algorithms: [],
-                    keys: new Map(),
-                    dehydrated: true,
-                });
-                const devicesMap = new Map<string, Device>([
-                    [device1.deviceId, device1],
-                    [device2.deviceId, device2],
-                ]);
-                const userDeviceMap = new Map<string, Map<string, Device>>([[defaultUserId, devicesMap]]);
-                mockCrypto.getUserDeviceInfo.mockResolvedValue(userDeviceMap);
-                mockCrypto.getUserVerificationStatus.mockResolvedValue(new UserVerificationStatus(true, true, true));
-                mockCrypto.getDeviceVerificationStatus.mockResolvedValue({
-                    isVerified: () => true,
-                } as DeviceVerificationStatus);
-
-                renderComponent({ room: mockRoom });
-                await flushPromises();
-
-                // check the button exists with the expected text (the dehydrated device shouldn't be counted)
-                const devicesButton = screen.getByRole("button", { name: "1 verified session" });
-
-                // click it
-                await act(() => {
-                    return userEvent.click(devicesButton);
-                });
-
-                // there should now be a button with the non-dehydrated device ID
-                expect(screen.getByTitle("d1")).toBeInTheDocument();
-
-                // but not for the dehydrated device ID
-                expect(screen.queryByTitle("d2")).not.toBeInTheDocument();
-
-                // there should be a line saying that the user has "Offline device" enabled
-                expect(screen.getByText("Offline device enabled")).toBeInTheDocument();
-            });
-
-            it("shows an unverified dehydrated device", async () => {
-                const device1 = new Device({
-                    deviceId: "d1",
-                    userId: defaultUserId,
-                    displayName: "my device",
-                    algorithms: [],
-                    keys: new Map(),
-                });
-                const device2 = new Device({
-                    deviceId: "d2",
-                    userId: defaultUserId,
-                    displayName: "dehydrated device",
-                    algorithms: [],
-                    keys: new Map(),
-                    dehydrated: true,
-                });
-                const devicesMap = new Map<string, Device>([
-                    [device1.deviceId, device1],
-                    [device2.deviceId, device2],
-                ]);
-                const userDeviceMap = new Map<string, Map<string, Device>>([[defaultUserId, devicesMap]]);
-                mockCrypto.getUserDeviceInfo.mockResolvedValue(userDeviceMap);
-                mockCrypto.getUserVerificationStatus.mockResolvedValue(new UserVerificationStatus(true, true, true));
-
-                renderComponent({ room: mockRoom });
-                await flushPromises();
-
-                // the dehydrated device should be shown as an unverified device, which means
-                // there should now be a button with the device id ...
-                const deviceButton = screen.getByRole("button", { name: "dehydrated device" });
-
-                // ... which should contain the device name
-                expect(within(deviceButton).getByText("dehydrated device")).toBeInTheDocument();
-            });
-
-            it("shows dehydrated devices if there is more than one", async () => {
-                const device1 = new Device({
-                    deviceId: "d1",
-                    userId: defaultUserId,
-                    displayName: "dehydrated device 1",
-                    algorithms: [],
-                    keys: new Map(),
-                    dehydrated: true,
-                });
-                const device2 = new Device({
-                    deviceId: "d2",
-                    userId: defaultUserId,
-                    displayName: "dehydrated device 2",
-                    algorithms: [],
-                    keys: new Map(),
-                    dehydrated: true,
-                });
-                const devicesMap = new Map<string, Device>([
-                    [device1.deviceId, device1],
-                    [device2.deviceId, device2],
-                ]);
-                const userDeviceMap = new Map<string, Map<string, Device>>([[defaultUserId, devicesMap]]);
-                mockCrypto.getUserDeviceInfo.mockResolvedValue(userDeviceMap);
-
-                renderComponent({ room: mockRoom });
-                await flushPromises();
-
-                // check the button exists with the expected text (the dehydrated device shouldn't be counted)
-                const devicesButton = screen.getByRole("button", { name: "2 sessions" });
-
-                // click it
-                await act(() => {
-                    return userEvent.click(devicesButton);
-                });
-
-                // the dehydrated devices should be shown as an unverified device, which means
-                // there should now be a button with the first dehydrated device...
-                const device1Button = screen.getByRole("button", { name: "dehydrated device 1" });
-                expect(device1Button).toBeVisible();
-
-                // ... which should contain the device name
-                expect(within(device1Button).getByText("dehydrated device 1")).toBeInTheDocument();
-                // and a button with the second dehydrated device...
-                const device2Button = screen.getByRole("button", { name: "dehydrated device 2" });
-                expect(device2Button).toBeVisible();
-
-                // ... which should contain the device name
-                expect(within(device2Button).getByText("dehydrated device 2")).toBeInTheDocument();
-            });
         });
 
         it("should render a deactivate button for users of the same server if we are a server admin", async () => {
@@ -655,224 +432,10 @@ describe("<UserInfo />", () => {
 
             await expect(screen.findByRole("button", { name: "Deactivate user" })).resolves.toBeInTheDocument();
             if (screen.queryAllByRole("progressbar").length) {
-                await waitForElementToBeRemoved(() => screen.queryAllByRole("progressbar"));
+                await act(() => waitForElementToBeRemoved(() => screen.queryAllByRole("progressbar")));
             }
             expect(container).toMatchSnapshot();
         });
-    });
-
-    describe("with an encrypted room", () => {
-        beforeEach(() => {
-            jest.spyOn(mockClient.getCrypto()!, "isEncryptionEnabledInRoom").mockResolvedValue(true);
-        });
-
-        it("renders unverified user info", async () => {
-            mockCrypto.getUserVerificationStatus.mockResolvedValue(new UserVerificationStatus(false, false, false));
-            renderComponent({ room: mockRoom });
-            await flushPromises();
-
-            const userHeading = screen.getByRole("heading", { name: /@user:example.com/ });
-
-            // there should be a "normal" E2E padlock
-            expect(userHeading.getElementsByClassName("mx_E2EIcon_normal")).toHaveLength(1);
-        });
-
-        it("renders verified user info", async () => {
-            mockCrypto.getUserVerificationStatus.mockResolvedValue(new UserVerificationStatus(true, false, false));
-            renderComponent({ room: mockRoom });
-            await flushPromises();
-
-            const userHeading = screen.getByRole("heading", { name: /@user:example.com/ });
-
-            // there should be a "verified" E2E padlock
-            expect(userHeading.getElementsByClassName("mx_E2EIcon_verified")).toHaveLength(1);
-        });
-    });
-});
-
-describe("<UserInfoHeader />", () => {
-    const defaultMember = new RoomMember(defaultRoomId, defaultUserId);
-
-    const defaultProps = {
-        member: defaultMember,
-        roomId: defaultRoomId,
-    };
-
-    const renderComponent = (props = {}) => {
-        const Wrapper = (wrapperProps = {}) => {
-            return <MatrixClientContext.Provider value={mockClient} {...wrapperProps} />;
-        };
-
-        return render(<UserInfoHeader {...defaultProps} {...props} />, {
-            wrapper: Wrapper,
-        });
-    };
-
-    it("does not render an e2e icon in the header if e2eStatus prop is undefined", () => {
-        renderComponent();
-        const header = screen.getByRole("heading", { name: defaultUserId });
-
-        expect(header.getElementsByClassName("mx_E2EIcon")).toHaveLength(0);
-    });
-
-    it("renders an e2e icon in the header if e2eStatus prop is defined", () => {
-        renderComponent({ e2eStatus: E2EStatus.Normal });
-        const header = screen.getByRole("heading");
-
-        expect(header.getElementsByClassName("mx_E2EIcon")).toHaveLength(1);
-    });
-
-    it("renders custom user identifiers in the header", () => {
-        renderComponent();
-
-        expect(screen.getByText("customUserIdentifier")).toBeInTheDocument();
-    });
-});
-
-describe("<DeviceItem />", () => {
-    const device = { deviceId: "deviceId", displayName: "deviceName" } as Device;
-    const defaultProps = {
-        userId: defaultUserId,
-        device,
-        isUserVerified: false,
-    };
-
-    const renderComponent = (props = {}) => {
-        const Wrapper = (wrapperProps = {}) => {
-            return <MatrixClientContext.Provider value={mockClient} {...wrapperProps} />;
-        };
-
-        return render(<DeviceItem {...defaultProps} {...props} />, {
-            wrapper: Wrapper,
-        });
-    };
-
-    const setMockDeviceTrust = (isVerified = false, isCrossSigningVerified = false) => {
-        mockCrypto.getDeviceVerificationStatus.mockResolvedValue({
-            isVerified: () => isVerified,
-            crossSigningVerified: isCrossSigningVerified,
-        } as DeviceVerificationStatus);
-    };
-
-    const mockVerifyDevice = jest.spyOn(mockVerification, "verifyDevice");
-
-    beforeEach(() => {
-        setMockDeviceTrust();
-    });
-
-    afterEach(() => {
-        mockCrypto.getDeviceVerificationStatus.mockReset();
-        mockVerifyDevice.mockClear();
-    });
-
-    afterAll(() => {
-        mockVerifyDevice.mockRestore();
-    });
-
-    it("with unverified user and device, displays button without a label", async () => {
-        renderComponent();
-        await flushPromises();
-
-        expect(screen.getByRole("button", { name: device.displayName! })).toBeInTheDocument();
-        expect(screen.queryByText(/trusted/i)).not.toBeInTheDocument();
-    });
-
-    it("with verified user only, displays button with a 'Not trusted' label", async () => {
-        renderComponent({ isUserVerified: true });
-        await flushPromises();
-
-        const button = screen.getByRole("button", { name: device.displayName });
-        expect(button).toHaveTextContent(`${device.displayName}Not trusted`);
-    });
-
-    it("with verified device only, displays no button without a label", async () => {
-        setMockDeviceTrust(true);
-        renderComponent();
-        await flushPromises();
-
-        expect(screen.getByText(device.displayName!)).toBeInTheDocument();
-        expect(screen.queryByText(/trusted/)).not.toBeInTheDocument();
-    });
-
-    it("when userId is the same as userId from client, uses isCrossSigningVerified to determine if button is shown", async () => {
-        const deferred = defer<DeviceVerificationStatus>();
-        mockCrypto.getDeviceVerificationStatus.mockReturnValue(deferred.promise);
-
-        mockClient.getSafeUserId.mockReturnValueOnce(defaultUserId);
-        mockClient.getUserId.mockReturnValueOnce(defaultUserId);
-        renderComponent();
-        await flushPromises();
-
-        // set trust to be false for isVerified, true for isCrossSigningVerified
-        deferred.resolve({
-            isVerified: () => false,
-            crossSigningVerified: true,
-        } as DeviceVerificationStatus);
-
-        await expect(screen.findByText(device.displayName!)).resolves.toBeInTheDocument();
-        // expect to see no button in this case
-        expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    });
-
-    it("with verified user and device, displays no button and a 'Trusted' label", async () => {
-        setMockDeviceTrust(true);
-        renderComponent({ isUserVerified: true });
-        await flushPromises();
-
-        expect(screen.queryByRole("button")).not.toBeInTheDocument();
-        expect(screen.getByText(device.displayName!)).toBeInTheDocument();
-        expect(screen.getByText("Trusted")).toBeInTheDocument();
-    });
-
-    it("does not call verifyDevice if client.getUser returns null", async () => {
-        mockClient.getUser.mockReturnValueOnce(null);
-        renderComponent();
-        await flushPromises();
-
-        const button = screen.getByRole("button", { name: device.displayName! });
-        expect(button).toBeInTheDocument();
-        await userEvent.click(button);
-
-        expect(mockVerifyDevice).not.toHaveBeenCalled();
-    });
-
-    it("calls verifyDevice if client.getUser returns an object", async () => {
-        mockClient.getUser.mockReturnValueOnce(defaultUser);
-        // set mock return of isGuest to short circuit verifyDevice call to avoid
-        // even more mocking
-        mockClient.isGuest.mockReturnValueOnce(true);
-        renderComponent();
-        await flushPromises();
-
-        const button = screen.getByRole("button", { name: device.displayName! });
-        expect(button).toBeInTheDocument();
-        await userEvent.click(button);
-
-        expect(mockVerifyDevice).toHaveBeenCalledTimes(1);
-        expect(mockVerifyDevice).toHaveBeenCalledWith(mockClient, defaultUser, device);
-    });
-
-    it("with display name", async () => {
-        const { container } = renderComponent();
-        await flushPromises();
-
-        expect(container).toMatchSnapshot();
-    });
-
-    it("without display name", async () => {
-        const device = { deviceId: "deviceId" } as Device;
-        const { container } = renderComponent({ device, userId: defaultUserId });
-        await flushPromises();
-
-        expect(container).toMatchSnapshot();
-    });
-
-    it("ambiguous display name", async () => {
-        const device = { deviceId: "deviceId", ambiguous: true, displayName: "my display name" };
-        const { container } = renderComponent({ device, userId: defaultUserId });
-        await flushPromises();
-
-        expect(container).toMatchSnapshot();
     });
 });
 
@@ -1058,7 +621,7 @@ describe("<UserOptionsSection />", () => {
     ])(
         "clicking »message« %s should start a DM",
         async (test: string, member: RoomMember | User, expectedAvatarUrl: string | undefined) => {
-            const deferred = defer<string>();
+            const deferred = Promise.withResolvers<string>();
             mocked(startDmOnFirstMessage).mockReturnValue(deferred.promise);
 
             renderComponent({ member });
@@ -1084,443 +647,6 @@ describe("<UserOptionsSection />", () => {
             expect(screen.getByRole("button", { name: "Send message" })).not.toBeDisabled();
         },
     );
-});
-
-describe("<PowerLevelEditor />", () => {
-    const defaultMember = new RoomMember(defaultRoomId, defaultUserId);
-
-    let defaultProps: Parameters<typeof PowerLevelEditor>[0];
-    beforeEach(() => {
-        defaultProps = {
-            user: defaultMember,
-            room: mockRoom,
-            roomPermissions: {
-                modifyLevelMax: 100,
-                canEdit: false,
-                canInvite: false,
-            },
-        };
-    });
-
-    const renderComponent = (props = {}) => {
-        const Wrapper = (wrapperProps = {}) => {
-            return <MatrixClientContext.Provider value={mockClient} {...wrapperProps} />;
-        };
-
-        return render(<PowerLevelEditor {...defaultProps} {...props} />, {
-            wrapper: Wrapper,
-        });
-    };
-
-    it("renders a power level combobox", () => {
-        renderComponent();
-
-        expect(screen.getByRole("combobox", { name: "Power level" })).toBeInTheDocument();
-    });
-
-    it("renders a combobox and attempts to change power level on change of the combobox", async () => {
-        const startPowerLevel = 999;
-        const powerLevelEvent = new MatrixEvent({
-            type: EventType.RoomPowerLevels,
-            content: { users: { [defaultUserId]: startPowerLevel }, users_default: 1 },
-        });
-        mockRoom.currentState.getStateEvents.mockReturnValue(powerLevelEvent);
-        mockClient.getSafeUserId.mockReturnValueOnce(defaultUserId);
-        mockClient.getUserId.mockReturnValueOnce(defaultUserId);
-        mockClient.setPowerLevel.mockResolvedValueOnce({ event_id: "123" });
-        renderComponent();
-
-        const changedPowerLevel = 100;
-
-        fireEvent.change(screen.getByRole("combobox", { name: "Power level" }), {
-            target: { value: changedPowerLevel },
-        });
-
-        await screen.findByText("Demote", { exact: true });
-
-        // firing the event will raise a dialog warning about self demotion, wait for this to appear then click on it
-        await userEvent.click(await screen.findByText("Demote", { exact: true }));
-        expect(mockClient.setPowerLevel).toHaveBeenCalledTimes(1);
-        expect(mockClient.setPowerLevel).toHaveBeenCalledWith(mockRoom.roomId, defaultMember.userId, changedPowerLevel);
-    });
-});
-
-describe("<RoomKickButton />", () => {
-    const defaultMember = new RoomMember(defaultRoomId, defaultUserId);
-    const memberWithInviteMembership = { ...defaultMember, membership: KnownMembership.Invite };
-    const memberWithJoinMembership = { ...defaultMember, membership: KnownMembership.Join };
-
-    let defaultProps: Parameters<typeof RoomKickButton>[0];
-    beforeEach(() => {
-        defaultProps = {
-            room: mockRoom,
-            member: defaultMember,
-            startUpdating: jest.fn(),
-            stopUpdating: jest.fn(),
-            isUpdating: false,
-        };
-    });
-
-    const renderComponent = (props = {}) => {
-        const Wrapper = (wrapperProps = {}) => {
-            return <MatrixClientContext.Provider value={mockClient} {...wrapperProps} />;
-        };
-
-        return render(<RoomKickButton {...defaultProps} {...props} />, {
-            wrapper: Wrapper,
-        });
-    };
-
-    const createDialogSpy: jest.SpyInstance = jest.spyOn(Modal, "createDialog");
-
-    afterEach(() => {
-        createDialogSpy.mockReset();
-    });
-
-    it("renders nothing if member.membership is undefined", () => {
-        // .membership is undefined in our member by default
-        const { container } = renderComponent();
-        expect(container).toBeEmptyDOMElement();
-    });
-
-    it("renders something if member.membership is 'invite' or 'join'", () => {
-        let result = renderComponent({ member: memberWithInviteMembership });
-        expect(result.container).not.toBeEmptyDOMElement();
-
-        cleanup();
-
-        result = renderComponent({ member: memberWithJoinMembership });
-        expect(result.container).not.toBeEmptyDOMElement();
-    });
-
-    it("renders the correct label", () => {
-        // test for room
-        renderComponent({ member: memberWithJoinMembership });
-        expect(screen.getByText(/remove from room/i)).toBeInTheDocument();
-        cleanup();
-
-        renderComponent({ member: memberWithInviteMembership });
-        expect(screen.getByText(/disinvite from room/i)).toBeInTheDocument();
-        cleanup();
-
-        // test for space
-        mockRoom.isSpaceRoom.mockReturnValue(true);
-        renderComponent({ member: memberWithJoinMembership });
-        expect(screen.getByText(/remove from space/i)).toBeInTheDocument();
-        cleanup();
-
-        renderComponent({ member: memberWithInviteMembership });
-        expect(screen.getByText(/disinvite from space/i)).toBeInTheDocument();
-        cleanup();
-        mockRoom.isSpaceRoom.mockReturnValue(false);
-    });
-
-    it("clicking the kick button calls Modal.createDialog with the correct arguments", async () => {
-        createDialogSpy.mockReturnValueOnce({ finished: Promise.resolve([]), close: jest.fn() });
-
-        renderComponent({ room: mockSpace, member: memberWithInviteMembership });
-        await userEvent.click(screen.getByText(/disinvite from/i));
-
-        // check the last call arguments and the presence of the spaceChildFilter callback
-        expect(createDialogSpy).toHaveBeenLastCalledWith(
-            expect.any(Function),
-            expect.objectContaining({ spaceChildFilter: expect.any(Function) }),
-            "mx_ConfirmSpaceUserActionDialog_wrapper",
-        );
-
-        // test the spaceChildFilter callback
-        const callback = createDialogSpy.mock.lastCall[1].spaceChildFilter;
-
-        // make dummy values for myMember and theirMember, then we will test
-        // null vs their member followed by
-        // my member vs their member
-        const mockMyMember = { powerLevel: 1 };
-        const mockTheirMember = { membership: KnownMembership.Invite, powerLevel: 0 };
-
-        const mockRoom = {
-            getMember: jest
-                .fn()
-                .mockReturnValueOnce(null)
-                .mockReturnValueOnce(mockTheirMember)
-                .mockReturnValueOnce(mockMyMember)
-                .mockReturnValueOnce(mockTheirMember),
-            currentState: {
-                hasSufficientPowerLevelFor: jest.fn().mockReturnValue(true),
-            },
-        };
-
-        expect(callback(mockRoom)).toBe(false);
-        expect(callback(mockRoom)).toBe(true);
-    });
-});
-
-describe("<BanToggleButton />", () => {
-    const defaultMember = new RoomMember(defaultRoomId, defaultUserId);
-    const memberWithBanMembership = { ...defaultMember, membership: KnownMembership.Ban };
-    let defaultProps: Parameters<typeof BanToggleButton>[0];
-    beforeEach(() => {
-        defaultProps = {
-            room: mockRoom,
-            member: defaultMember,
-            startUpdating: jest.fn(),
-            stopUpdating: jest.fn(),
-            isUpdating: false,
-        };
-    });
-
-    const renderComponent = (props = {}) => {
-        const Wrapper = (wrapperProps = {}) => {
-            return <MatrixClientContext.Provider value={mockClient} {...wrapperProps} />;
-        };
-
-        return render(<BanToggleButton {...defaultProps} {...props} />, {
-            wrapper: Wrapper,
-        });
-    };
-
-    const createDialogSpy: jest.SpyInstance = jest.spyOn(Modal, "createDialog");
-
-    afterEach(() => {
-        createDialogSpy.mockReset();
-    });
-
-    it("renders the correct labels for banned and unbanned members", () => {
-        // test for room
-        // defaultMember is not banned
-        renderComponent();
-        expect(screen.getByText("Ban from room")).toBeInTheDocument();
-        cleanup();
-
-        renderComponent({ member: memberWithBanMembership });
-        expect(screen.getByText("Unban from room")).toBeInTheDocument();
-        cleanup();
-
-        // test for space
-        mockRoom.isSpaceRoom.mockReturnValue(true);
-        renderComponent();
-        expect(screen.getByText("Ban from space")).toBeInTheDocument();
-        cleanup();
-
-        renderComponent({ member: memberWithBanMembership });
-        expect(screen.getByText("Unban from space")).toBeInTheDocument();
-        cleanup();
-        mockRoom.isSpaceRoom.mockReturnValue(false);
-    });
-
-    it("clicking the ban or unban button calls Modal.createDialog with the correct arguments if user is not banned", async () => {
-        createDialogSpy.mockReturnValueOnce({ finished: Promise.resolve([]), close: jest.fn() });
-
-        renderComponent({ room: mockSpace });
-        await userEvent.click(screen.getByText(/ban from/i));
-
-        // check the last call arguments and the presence of the spaceChildFilter callback
-        expect(createDialogSpy).toHaveBeenLastCalledWith(
-            expect.any(Function),
-            expect.objectContaining({ spaceChildFilter: expect.any(Function) }),
-            "mx_ConfirmSpaceUserActionDialog_wrapper",
-        );
-
-        // test the spaceChildFilter callback
-        const callback = createDialogSpy.mock.lastCall[1].spaceChildFilter;
-
-        // make dummy values for myMember and theirMember, then we will test
-        // null vs their member followed by
-        // truthy my member vs their member
-        const mockMyMember = { powerLevel: 1 };
-        const mockTheirMember = { membership: "is not ban", powerLevel: 0 };
-
-        const mockRoom = {
-            getMember: jest
-                .fn()
-                .mockReturnValueOnce(null)
-                .mockReturnValueOnce(mockTheirMember)
-                .mockReturnValueOnce(mockMyMember)
-                .mockReturnValueOnce(mockTheirMember),
-            currentState: {
-                hasSufficientPowerLevelFor: jest.fn().mockReturnValue(true),
-            },
-        };
-
-        expect(callback(mockRoom)).toBe(false);
-        expect(callback(mockRoom)).toBe(true);
-    });
-
-    it("clicking the ban or unban button calls Modal.createDialog with the correct arguments if user _is_ banned", async () => {
-        createDialogSpy.mockReturnValueOnce({ finished: Promise.resolve([]), close: jest.fn() });
-
-        renderComponent({ room: mockSpace, member: memberWithBanMembership });
-        await userEvent.click(screen.getByText(/ban from/i));
-
-        // check the last call arguments and the presence of the spaceChildFilter callback
-        expect(createDialogSpy).toHaveBeenLastCalledWith(
-            expect.any(Function),
-            expect.objectContaining({ spaceChildFilter: expect.any(Function) }),
-            "mx_ConfirmSpaceUserActionDialog_wrapper",
-        );
-
-        // test the spaceChildFilter callback
-        const callback = createDialogSpy.mock.lastCall[1].spaceChildFilter;
-
-        // make dummy values for myMember and theirMember, then we will test
-        // null vs their member followed by
-        // my member vs their member
-        const mockMyMember = { powerLevel: 1 };
-        const mockTheirMember = { membership: KnownMembership.Ban, powerLevel: 0 };
-
-        const mockRoom = {
-            getMember: jest
-                .fn()
-                .mockReturnValueOnce(null)
-                .mockReturnValueOnce(mockTheirMember)
-                .mockReturnValueOnce(mockMyMember)
-                .mockReturnValueOnce(mockTheirMember),
-            currentState: {
-                hasSufficientPowerLevelFor: jest.fn().mockReturnValue(true),
-            },
-        };
-
-        expect(callback(mockRoom)).toBe(false);
-        expect(callback(mockRoom)).toBe(true);
-    });
-});
-
-describe("<RoomAdminToolsContainer />", () => {
-    const defaultMember = new RoomMember(defaultRoomId, defaultUserId);
-    defaultMember.membership = KnownMembership.Invite;
-
-    let defaultProps: Parameters<typeof RoomAdminToolsContainer>[0];
-    beforeEach(() => {
-        defaultProps = {
-            room: mockRoom,
-            member: defaultMember,
-            isUpdating: false,
-            startUpdating: jest.fn(),
-            stopUpdating: jest.fn(),
-            powerLevels: {},
-        };
-    });
-
-    const renderComponent = (props = {}) => {
-        const Wrapper = (wrapperProps = {}) => {
-            return <MatrixClientContext.Provider value={mockClient} {...wrapperProps} />;
-        };
-
-        return render(<RoomAdminToolsContainer {...defaultProps} {...props} />, {
-            wrapper: Wrapper,
-        });
-    };
-
-    it("returns a single empty div if room.getMember is falsy", () => {
-        const { asFragment } = renderComponent();
-        expect(asFragment()).toMatchInlineSnapshot(`
-            <DocumentFragment>
-              <div />
-            </DocumentFragment>
-        `);
-    });
-
-    it("can return a single empty div in case where room.getMember is not falsy", () => {
-        mockRoom.getMember.mockReturnValueOnce(defaultMember);
-        const { asFragment } = renderComponent();
-        expect(asFragment()).toMatchInlineSnapshot(`
-            <DocumentFragment>
-              <div />
-            </DocumentFragment>
-        `);
-    });
-
-    it("returns kick, redact messages, ban buttons if conditions met", () => {
-        const mockMeMember = new RoomMember(mockRoom.roomId, "arbitraryId");
-        mockMeMember.powerLevel = 51; // defaults to 50
-        mockRoom.getMember.mockReturnValueOnce(mockMeMember);
-
-        const defaultMemberWithPowerLevel = { ...defaultMember, powerLevel: 0 };
-
-        renderComponent({ member: defaultMemberWithPowerLevel });
-
-        expect(screen.getByRole("button", { name: "Disinvite from room" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Ban from room" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Remove messages" })).toBeInTheDocument();
-    });
-
-    it("should show BulkRedactDialog upon clicking the Remove messages button", async () => {
-        const spy = jest.spyOn(Modal, "createDialog");
-
-        mockClient.getRoom.mockReturnValue(mockRoom);
-        mockClient.getUserId.mockReturnValue("@arbitraryId:server");
-        const mockMeMember = new RoomMember(mockRoom.roomId, mockClient.getUserId()!);
-        mockMeMember.powerLevel = 51; // defaults to 50
-        const defaultMemberWithPowerLevel = { ...defaultMember, powerLevel: 0 } as RoomMember;
-        mockRoom.getMember.mockImplementation((userId) =>
-            userId === mockClient.getUserId() ? mockMeMember : defaultMemberWithPowerLevel,
-        );
-
-        renderComponent({ member: defaultMemberWithPowerLevel });
-        await userEvent.click(screen.getByRole("button", { name: "Remove messages" }));
-
-        expect(spy).toHaveBeenCalledWith(
-            BulkRedactDialog,
-            expect.objectContaining({ member: defaultMemberWithPowerLevel }),
-        );
-    });
-
-    it("returns mute toggle button if conditions met", () => {
-        const mockMeMember = new RoomMember(mockRoom.roomId, "arbitraryId");
-        mockMeMember.powerLevel = 51; // defaults to 50
-        mockRoom.getMember.mockReturnValueOnce(mockMeMember);
-
-        const defaultMemberWithPowerLevelAndJoinMembership = {
-            ...defaultMember,
-            powerLevel: 0,
-            membership: KnownMembership.Join,
-        };
-
-        renderComponent({
-            member: defaultMemberWithPowerLevelAndJoinMembership,
-            powerLevels: { events: { "m.room.power_levels": 1 } },
-        });
-
-        const button = screen.getByText(/mute/i);
-        expect(button).toBeInTheDocument();
-        fireEvent.click(button);
-        expect(defaultProps.startUpdating).toHaveBeenCalled();
-    });
-
-    it("should disable buttons when isUpdating=true", () => {
-        const mockMeMember = new RoomMember(mockRoom.roomId, "arbitraryId");
-        mockMeMember.powerLevel = 51; // defaults to 50
-        mockRoom.getMember.mockReturnValueOnce(mockMeMember);
-
-        const defaultMemberWithPowerLevelAndJoinMembership = {
-            ...defaultMember,
-            powerLevel: 0,
-            membership: KnownMembership.Join,
-        };
-
-        renderComponent({
-            member: defaultMemberWithPowerLevelAndJoinMembership,
-            powerLevels: { events: { "m.room.power_levels": 1 } },
-            isUpdating: true,
-        });
-
-        const button = screen.getByRole("button", { name: "Mute" });
-        expect(button).toBeInTheDocument();
-        expect(button).toBeDisabled();
-    });
-
-    it("should not show mute button for one's own member", () => {
-        const mockMeMember = new RoomMember(mockRoom.roomId, mockClient.getSafeUserId());
-        mockMeMember.powerLevel = 51; // defaults to 50
-        mockRoom.getMember.mockReturnValueOnce(mockMeMember);
-
-        renderComponent({
-            member: mockMeMember,
-            powerLevels: { events: { "m.room.power_levels": 100 } },
-        });
-
-        const button = screen.queryByText(/mute/i);
-        expect(button).not.toBeInTheDocument();
-    });
 });
 
 describe("disambiguateDevices", () => {
@@ -1559,47 +685,6 @@ describe("disambiguateDevices", () => {
         nonUniqueNameDevices.forEach((device) => {
             expect(device).toHaveProperty("ambiguous", true);
         });
-    });
-});
-
-describe("isMuted", () => {
-    // this member has a power level of 0
-    const isMutedMember = new RoomMember(defaultRoomId, defaultUserId);
-
-    it("returns false if either argument is falsy", () => {
-        // @ts-ignore to let us purposely pass incorrect args
-        expect(isMuted(isMutedMember, null)).toBe(false);
-        // @ts-ignore to let us purposely pass incorrect args
-        expect(isMuted(null, {})).toBe(false);
-    });
-
-    it("when powerLevelContent.events and .events_default are undefined, returns false", () => {
-        const powerLevelContents = {};
-        expect(isMuted(isMutedMember, powerLevelContents)).toBe(false);
-    });
-
-    it("when powerLevelContent.events is undefined, uses .events_default", () => {
-        const higherPowerLevelContents = { events_default: 10 };
-        expect(isMuted(isMutedMember, higherPowerLevelContents)).toBe(true);
-
-        const lowerPowerLevelContents = { events_default: -10 };
-        expect(isMuted(isMutedMember, lowerPowerLevelContents)).toBe(false);
-    });
-
-    it("when powerLevelContent.events is defined but '.m.room.message' isn't, uses .events_default", () => {
-        const higherPowerLevelContents = { events: {}, events_default: 10 };
-        expect(isMuted(isMutedMember, higherPowerLevelContents)).toBe(true);
-
-        const lowerPowerLevelContents = { events: {}, events_default: -10 };
-        expect(isMuted(isMutedMember, lowerPowerLevelContents)).toBe(false);
-    });
-
-    it("when powerLevelContent.events and '.m.room.message' are defined, uses the value", () => {
-        const higherPowerLevelContents = { events: { "m.room.message": -10 }, events_default: 10 };
-        expect(isMuted(isMutedMember, higherPowerLevelContents)).toBe(false);
-
-        const lowerPowerLevelContents = { events: { "m.room.message": 10 }, events_default: -10 };
-        expect(isMuted(isMutedMember, lowerPowerLevelContents)).toBe(true);
     });
 });
 

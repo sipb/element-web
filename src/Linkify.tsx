@@ -1,24 +1,17 @@
 /*
-Copyright 2024 New Vector Ltd.
+Copyright 2024, 2025 New Vector Ltd.
 Copyright 2024 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { ReactElement } from "react";
-import sanitizeHtml from "sanitize-html";
+import React, { type ReactElement } from "react";
+import sanitizeHtml, { type IOptions } from "sanitize-html";
 import { merge } from "lodash";
 import _Linkify from "linkify-react";
 
-import {
-    _linkifyElement,
-    _linkifyString,
-    ELEMENT_URL_PATTERN,
-    options as linkifyMatrixOptions,
-} from "./linkify-matrix";
-import { IExtendedSanitizeOptions } from "./@types/sanitize-html";
-import SettingsStore from "./settings/SettingsStore";
+import { _linkifyString, ELEMENT_URL_PATTERN, options as linkifyMatrixOptions } from "./linkify-matrix";
 import { tryTransformPermalinkToLocalHref } from "./utils/permalinks/Permalinks";
 import { mediaFromMxc } from "./customisations/Media";
 import { PERMITTED_URL_SCHEMES } from "./utils/UrlUtils";
@@ -26,7 +19,7 @@ import { PERMITTED_URL_SCHEMES } from "./utils/UrlUtils";
 const COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
 const MEDIA_API_MXC_REGEX = /\/_matrix\/media\/r0\/(?:download|thumbnail)\/(.+?)\/(.+?)(?:[?/]|$)/;
 
-export const transformTags: NonNullable<IExtendedSanitizeOptions["transformTags"]> = {
+export const transformTags: NonNullable<IOptions["transformTags"]> = {
     // custom to matrix
     // add blank targets to all hyperlinks except vector URLs
     "a": function (tagName: string, attribs: sanitizeHtml.Attributes) {
@@ -53,10 +46,7 @@ export const transformTags: NonNullable<IExtendedSanitizeOptions["transformTags"
         // Strip out imgs that aren't `mxc` here instead of using allowedSchemesByTag
         // because transformTags is used _before_ we filter by allowedSchemesByTag and
         // we don't want to allow images with `https?` `src`s.
-        // We also drop inline images (as if they were not present at all) when the "show
-        // images" preference is disabled. Future work might expose some UI to reveal them
-        // like standalone image events have.
-        if (!src || !SettingsStore.getValue("showImages")) {
+        if (!src) {
             return { tagName, attribs: {} };
         }
 
@@ -84,7 +74,6 @@ export const transformTags: NonNullable<IExtendedSanitizeOptions["transformTags"
         if (requestedHeight) {
             attribs.style += "height: 100%;";
         }
-
         attribs.src = mediaFromMxc(src).getThumbnailOfSourceHttp(width, height)!;
         return { tagName, attribs };
     },
@@ -137,7 +126,7 @@ export const transformTags: NonNullable<IExtendedSanitizeOptions["transformTags"
     },
 };
 
-export const sanitizeHtmlParams: IExtendedSanitizeOptions = {
+export const sanitizeHtmlParams: IOptions = {
     allowedTags: [
         // These tags are suggested by the spec https://spec.matrix.org/v1.10/client-server-api/#mroommessage-msgtypes
         "font", // custom to matrix for IRC-style font coloring
@@ -222,17 +211,6 @@ export function Linkify({ as, options, children }: React.ComponentProps<typeof _
  */
 export function linkifyString(str: string, options = linkifyMatrixOptions): string {
     return _linkifyString(str, options);
-}
-
-/**
- * Linkifies the given DOM element. This is a wrapper around 'linkifyjs/element'.
- *
- * @param {object} element DOM element to linkify
- * @param {object} [options] Options for linkifyElement. Default: linkifyMatrixOptions
- * @returns {object}
- */
-export function linkifyElement(element: HTMLElement, options = linkifyMatrixOptions): HTMLElement {
-    return _linkifyElement(element, options);
 }
 
 /**

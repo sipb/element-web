@@ -2,17 +2,18 @@
 Copyright 2024 New Vector Ltd.
 Copyright 2020 The Matrix.org Foundation C.I.C.
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
-import React, { ReactElement, RefCallback } from "react";
+import { type ReactElement, type RefCallback, type RefObject } from "react";
 
+import type React from "react";
 import { useRovingTabIndex } from "../RovingTabIndex";
-import { FocusHandler, Ref } from "./types";
+import { type FocusHandler } from "./types";
 
 interface IProps {
-    inputRef?: Ref;
+    inputRef?: RefObject<HTMLElement | null>;
     children(renderProps: {
         onFocus: FocusHandler;
         isActive: boolean;

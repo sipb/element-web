@@ -4,7 +4,7 @@ Copyright 2020 The Matrix.org Foundation C.I.C.
 Copyright 2018 New Vector Ltd
 Copyright 2017 Vector Creations Ltd
 
-SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Commercial
 Please see LICENSE files in the repository root for full details.
 */
 
@@ -31,13 +31,13 @@ export default class SessionRestoreErrorDialog extends React.Component<IProps> {
     };
 
     private onClearStorageClick = (): void => {
-        Modal.createDialog(QuestionDialog, {
+        const { finished } = Modal.createDialog(QuestionDialog, {
             title: _t("action|sign_out"),
             description: <div>{_t("error|session_restore|clear_storage_description")}</div>,
             button: _t("action|sign_out"),
             danger: true,
-            onFinished: this.props.onFinished,
         });
+        finished.then(([ok]) => this.props.onFinished(ok));
     };
 
     private onRefreshClick = (): void => {
