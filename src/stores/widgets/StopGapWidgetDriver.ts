@@ -144,11 +144,19 @@ export class StopGapWidgetDriver extends WidgetDriver {
             const clientDeviceId = MatrixClientPeg.safeGet().getDeviceId();
             if (clientDeviceId !== null) {
                 // For the session membership type compliant with MSC4143
+                // Note MSC4143 still uses the org.matrix.msc3401 unstable prefix
                 this.allowedCapabilities.add(
                     WidgetEventCapability.forStateEvent(
                         EventDirection.Send,
                         "org.matrix.msc3401.call.member",
                         `_${clientUserId}_${clientDeviceId}`,
+                    ).raw,
+                );
+                this.allowedCapabilities.add(
+                    WidgetEventCapability.forStateEvent(
+                        EventDirection.Send,
+                        "org.matrix.msc3401.call.member",
+                        `_${clientUserId}_${clientDeviceId}_m.call`,
                     ).raw,
                 );
                 // Version with no leading underscore, for room versions whose auth rules allow it
@@ -157,6 +165,13 @@ export class StopGapWidgetDriver extends WidgetDriver {
                         EventDirection.Send,
                         "org.matrix.msc3401.call.member",
                         `${clientUserId}_${clientDeviceId}`,
+                    ).raw,
+                );
+                this.allowedCapabilities.add(
+                    WidgetEventCapability.forStateEvent(
+                        EventDirection.Send,
+                        "org.matrix.msc3401.call.member",
+                        `${clientUserId}_${clientDeviceId}_m.call`,
                     ).raw,
                 );
             }
@@ -175,6 +190,9 @@ export class StopGapWidgetDriver extends WidgetDriver {
                 EventType.Reaction,
                 EventType.RoomRedaction,
                 "io.element.call.reaction",
+                //  MSC4310: Add dev and final event to ease future transition,
+                EventType.RTCDecline,
+                "m.rtc.decline",
             ];
             for (const eventType of [...sendRoomEvents, ...sendRecvRoomEvents])
                 this.allowedCapabilities.add(WidgetEventCapability.forRoomEvent(EventDirection.Send, eventType).raw);

@@ -49,7 +49,7 @@ test.describe("Encryption state after registration", () => {
             "Pa$sW0rD!",
         );
 
-        await page.getByRole("button", { name: "Add room" }).click();
+        await page.getByRole("navigation", { name: "Room list" }).getByRole("button", { name: "Add" }).click();
         await page.getByRole("menuitem", { name: "New room" }).click();
         await page.getByRole("textbox", { name: "Name" }).fill("test room");
         await page.getByRole("button", { name: "Create room" }).click();
@@ -78,7 +78,7 @@ test.describe("Key backup reset from elsewhere", () => {
         await page.getByRole("button", { name: "Continue" }).click();
         await registerAccountMas(page, mailpitClient, testUsername, `${testUsername}@email.com`, testPassword);
 
-        await page.getByRole("button", { name: "Add room" }).click();
+        await page.getByRole("navigation", { name: "Room list" }).getByRole("button", { name: "Add" }).click();
         await page.getByRole("menuitem", { name: "New room" }).click();
         await page.getByRole("textbox", { name: "Name" }).fill("test room");
         await page.getByRole("button", { name: "Create room" }).click();
@@ -91,10 +91,10 @@ test.describe("Key backup reset from elsewhere", () => {
 
         await csAPI.deleteBackupVersion(backupInfo.version);
 
-        await page.getByRole("textbox", { name: "Send an encrypted message…" }).fill("/discardsession");
+        await page.getByRole("textbox", { name: "Send a message…" }).fill("/discardsession");
         await page.getByRole("button", { name: "Send message" }).click();
 
-        await page.getByRole("textbox", { name: "Send an encrypted message…" }).fill("Message with broken key backup");
+        await page.getByRole("textbox", { name: "Send a message…" }).fill("Message with broken key backup");
         await page.getByRole("button", { name: "Send message" }).click();
 
         // Should be the message we sent plus the room creation event

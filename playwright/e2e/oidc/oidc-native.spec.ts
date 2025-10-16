@@ -95,10 +95,6 @@ test.describe("OIDC Native", { tag: ["@no-firefox", "@no-webkit"] }, () => {
             const result = await mas.manage("kill-sessions", userId);
             expect(result.output).toContain("Ended 1 active OAuth 2.0 session");
 
-            // Workaround for Synapse's 2 minute cache on MAS token validity
-            // (https://github.com/element-hq/synapse/pull/18231)
-            await homeserver.restart();
-
             await page.goto("http://localhost:8080");
             await expect(
                 page.getByText("For security, this session has been signed out. Please sign in again."),
@@ -133,8 +129,8 @@ test.describe("OIDC Native", { tag: ["@no-firefox", "@no-webkit"] }, () => {
         await page.getByRole("button", { name: "Continue" }).click();
         await page.getByRole("button", { name: "Continue" }).click();
 
-        // We should be in (we see an error because we have no recovery key).
-        await expect(page.getByText("Unable to verify this device")).toBeVisible();
+        // We should be in
+        await expect(page.getByText("Confirm your identity")).toBeVisible();
     });
 
     test.describe("with force_verification on", () => {
@@ -166,7 +162,7 @@ test.describe("OIDC Native", { tag: ["@no-firefox", "@no-webkit"] }, () => {
             await page.getByRole("button", { name: "Continue" }).click();
 
             // We should be being warned that we need to verify (but we can't)
-            await expect(page.getByText("Unable to verify this device")).toBeVisible();
+            await expect(page.getByText("Confirm your identity")).toBeVisible();
 
             // And there should be no way to close this prompt
             await expect(page.getByRole("button", { name: "Skip verification for now" })).not.toBeVisible();
@@ -214,7 +210,7 @@ test.describe("OIDC Native", { tag: ["@no-firefox", "@no-webkit"] }, () => {
                 await expect(page.getByRole("button", { name: "Skip verification for now" })).not.toBeVisible();
 
                 // When we start verifying with another device
-                await page.getByRole("button", { name: "Verify with another device" }).click();
+                await page.getByRole("button", { name: "Use another device" }).click();
 
                 // And then cancel it
                 await page.getByRole("button", { name: "Close dialog" }).click();
@@ -231,8 +227,8 @@ test.describe("OIDC Native", { tag: ["@no-firefox", "@no-webkit"] }, () => {
  * Perform interactive emoji verification for a new device.
  */
 async function verifyUsingOtherDevice(deviceToVerifyPage: Page, alreadyVerifiedDevicePage: Page) {
-    await deviceToVerifyPage.getByRole("button", { name: "Verify with another device" }).click();
-    await alreadyVerifiedDevicePage.getByRole("button", { name: "Verify session" }).click();
+    await deviceToVerifyPage.getByRole("button", { name: "Use another device" }).click();
+    await alreadyVerifiedDevicePage.getByRole("button", { name: "Start verification" }).click();
     await alreadyVerifiedDevicePage.getByRole("button", { name: "Start" }).click();
     await alreadyVerifiedDevicePage.getByRole("button", { name: "They match" }).click();
     await deviceToVerifyPage.getByRole("button", { name: "They match" }).click();

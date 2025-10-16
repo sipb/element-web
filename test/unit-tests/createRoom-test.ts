@@ -18,6 +18,8 @@ import WidgetUtils from "../../src/utils/WidgetUtils";
 import { JitsiCall, ElementCall } from "../../src/models/Call";
 import createRoom, { checkUserIsAllowedToChangeEncryption, canEncryptToAllUsers } from "../../src/createRoom";
 import SettingsStore from "../../src/settings/SettingsStore";
+import { ElementCallEventType, ElementCallMemberEventType } from "../../src/call-types";
+import DMRoomMap from "../../src/utils/DMRoomMap";
 
 describe("createRoom", () => {
     mockPlatformPeg();
@@ -26,9 +28,64 @@ describe("createRoom", () => {
     beforeEach(() => {
         stubClient();
         client = mocked(MatrixClientPeg.safeGet());
+        DMRoomMap.makeShared(client);
     });
 
     afterEach(() => jest.clearAllMocks());
+
+    it("creates a private room", async () => {
+        await createRoom(client, { createOpts: { preset: Preset.PrivateChat } });
+
+        expect(client.createRoom).toHaveBeenCalledWith({
+            preset: "private_chat",
+            visibility: "private",
+            initial_state: [{ state_key: "", type: "m.room.guest_access", content: { guest_access: "can_join" } }],
+        });
+    });
+
+    it("creates a private room in a space", async () => {
+        const roomId = await createRoom(client, { roomType: RoomType.Space });
+        const parentSpace = client.getRoom(roomId!)!;
+        client.createRoom.mockClear();
+
+        await createRoom(client, { parentSpace, createOpts: { preset: Preset.PrivateChat } });
+
+        expect(client.createRoom).toHaveBeenCalledWith({
+            preset: "private_chat",
+            visibility: "private",
+            initial_state: [
+                { state_key: "", type: "m.room.guest_access", content: { guest_access: "can_join" } },
+                { type: "m.space.parent", state_key: parentSpace.roomId, content: { canonical: true, via: [] } },
+            ],
+        });
+    });
+
+    it("creates a public room", async () => {
+        await createRoom(client, { createOpts: { preset: Preset.PublicChat } });
+
+        expect(client.createRoom).toHaveBeenCalledWith({
+            preset: "public_chat",
+            visibility: "private",
+            initial_state: [{ state_key: "", type: "m.room.guest_access", content: { guest_access: "can_join" } }],
+        });
+    });
+
+    it("creates a public room in a space", async () => {
+        const roomId = await createRoom(client, { roomType: RoomType.Space });
+        const parentSpace = client.getRoom(roomId!)!;
+        client.createRoom.mockClear();
+
+        await createRoom(client, { parentSpace, createOpts: { preset: Preset.PublicChat } });
+
+        expect(client.createRoom).toHaveBeenCalledWith({
+            preset: "public_chat",
+            visibility: "private",
+            initial_state: [
+                { state_key: "", type: "m.room.guest_access", content: { guest_access: "can_join" } },
+                { type: "m.space.parent", state_key: parentSpace.roomId, content: { canonical: true, via: [] } },
+            ],
+        });
+    });
 
     it("sets up Jitsi video rooms correctly", async () => {
         setupAsyncStoreWithClient(WidgetStore.instance, client);
@@ -75,11 +132,9 @@ describe("createRoom", () => {
 
         const userPower = client.createRoom.mock.calls[0][0].power_level_content_override?.users?.[userId];
         const callPower =
-            client.createRoom.mock.calls[0][0].power_level_content_override?.events?.[ElementCall.CALL_EVENT_TYPE.name];
+            client.createRoom.mock.calls[0][0].power_level_content_override?.events?.[ElementCallEventType.name];
         const callMemberPower =
-            client.createRoom.mock.calls[0][0].power_level_content_override?.events?.[
-                ElementCall.MEMBER_EVENT_TYPE.name
-            ];
+            client.createRoom.mock.calls[0][0].power_level_content_override?.events?.[ElementCallMemberEventType.name];
 
         // We should have had enough power to be able to set up the call
         expect(userPower).toBeGreaterThanOrEqual(callPower!);
@@ -112,11 +167,9 @@ describe("createRoom", () => {
         await createRoom(client, {});
 
         const callPower =
-            client.createRoom.mock.calls[0][0].power_level_content_override?.events?.[ElementCall.CALL_EVENT_TYPE.name];
+            client.createRoom.mock.calls[0][0].power_level_content_override?.events?.[ElementCallEventType.name];
         const callMemberPower =
-            client.createRoom.mock.calls[0][0].power_level_content_override?.events?.[
-                ElementCall.MEMBER_EVENT_TYPE.name
-            ];
+            client.createRoom.mock.calls[0][0].power_level_content_override?.events?.[ElementCallMemberEventType.name];
 
         expect(callPower).toBe(100);
         expect(callMemberPower).toBe(0);

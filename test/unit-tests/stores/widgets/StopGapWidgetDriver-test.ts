@@ -110,6 +110,8 @@ describe("StopGapWidgetDriver", () => {
             "org.matrix.msc2762.receive.state_event:org.matrix.msc3401.call.member",
             `org.matrix.msc2762.send.state_event:org.matrix.msc3401.call.member#_@alice:example.org_${client.deviceId}`,
             `org.matrix.msc2762.send.state_event:org.matrix.msc3401.call.member#@alice:example.org_${client.deviceId}`,
+            `org.matrix.msc2762.send.state_event:org.matrix.msc3401.call.member#_@alice:example.org_${client.deviceId}_m.call`,
+            `org.matrix.msc2762.send.state_event:org.matrix.msc3401.call.member#@alice:example.org_${client.deviceId}_m.call`,
             "org.matrix.msc3819.send.to_device:m.call.invite",
             "org.matrix.msc3819.receive.to_device:m.call.invite",
             "org.matrix.msc3819.send.to_device:m.call.candidates",
@@ -132,6 +134,11 @@ describe("StopGapWidgetDriver", () => {
             "org.matrix.msc3819.receive.to_device:m.call.replaces",
             "org.matrix.msc4157.send.delayed_event",
             "org.matrix.msc4157.update_delayed_event",
+            // RTC decline events
+            "org.matrix.msc2762.send.event:org.matrix.msc4310.rtc.decline",
+            "org.matrix.msc2762.receive.event:org.matrix.msc4310.rtc.decline",
+            "org.matrix.msc2762.send.event:m.rtc.decline",
+            "org.matrix.msc2762.receive.event:m.rtc.decline",
         ]);
 
         const approvedCapabilities = await driver.validateCapabilities(requestedCapabilities);

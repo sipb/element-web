@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only OR GPL-3.0-only OR LicenseRef-Element-Com
 Please see LICENSE files in the repository root for full details.
 */
 
-import React from "react";
+import React, { type JSX, useEffect, useMemo } from "react";
 import { logger } from "matrix-js-sdk/src/logger";
 import { type IContent } from "matrix-js-sdk/src/matrix";
 import { type MediaEventContent } from "matrix-js-sdk/src/types";
@@ -14,14 +14,13 @@ import { type MediaEventContent } from "matrix-js-sdk/src/types";
 import { type Playback } from "../../../audio/Playback";
 import InlineSpinner from "../elements/InlineSpinner";
 import { _t } from "../../../languageHandler";
-import AudioPlayer from "../audio_messages/AudioPlayer";
 import MFileBody from "./MFileBody";
 import { type IBodyProps } from "./IBodyProps";
 import { PlaybackManager } from "../../../audio/PlaybackManager";
-import { isVoiceMessage } from "../../../utils/EventUtils";
-import { PlaybackQueue } from "../../../audio/PlaybackQueue";
 import RoomContext, { TimelineRenderingType } from "../../../contexts/RoomContext";
 import MediaProcessingError from "./shared/MediaProcessingError";
+import { AudioPlayerViewModel } from "../../../viewmodels/audio/AudioPlayerViewModel";
+import { AudioPlayerView } from "../../../shared-components/audio/AudioPlayerView";
 
 interface IState {
     error?: boolean;
@@ -36,7 +35,6 @@ export default class MAudioBody extends React.PureComponent<IBodyProps, IState> 
 
     public async componentDidMount(): Promise<void> {
         let buffer: ArrayBuffer;
-
         try {
             try {
                 const blob = await this.props.mediaEventHelper!.sourceBlob.value;
@@ -63,12 +61,11 @@ export default class MAudioBody extends React.PureComponent<IBodyProps, IState> 
         playback.clockInfo.populatePlaceholdersFrom(this.props.mxEvent);
         this.setState({ playback });
 
-        if (isVoiceMessage(this.props.mxEvent)) {
-            PlaybackQueue.forRoom(this.props.mxEvent.getRoomId()!).unsortedEnqueue(this.props.mxEvent, playback);
-        }
-
-        // Note: the components later on will handle preparing the Playback class for us.
+        this.onMount(playback);
+        // Note: the components later on will handle preparing the Playback class for us
     }
+
+    protected onMount(playback: Playback): void {}
 
     public componentWillUnmount(): void {
         this.state.playback?.destroy();
@@ -118,4 +115,30 @@ export default class MAudioBody extends React.PureComponent<IBodyProps, IState> 
             </span>
         );
     }
+}
+
+interface AudioPlayerProps {
+    /**
+     * The playback instance to control audio playback.
+     */
+    playback: Playback;
+    /**
+     * The name of the media being played
+     */
+    mediaName: string;
+}
+
+/**
+ * AudioPlayer component that initializes the AudioPlayerViewModel and renders the AudioPlayerView.
+ */
+function AudioPlayer({ playback, mediaName }: AudioPlayerProps): JSX.Element {
+    const vm = useMemo(() => new AudioPlayerViewModel({ playback, mediaName }), [playback, mediaName]);
+
+    useEffect(() => {
+        return () => {
+            vm.dispose();
+        };
+    }, [vm]);
+
+    return <AudioPlayerView vm={vm} />;
 }

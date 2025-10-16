@@ -21,9 +21,10 @@ const checkDMRoom = async (page: Page) => {
 };
 
 const startDMWithBob = async (page: Page, bob: Bot) => {
-    await page.locator(".mx_LegacyRoomList").getByRole("button", { name: "Start chat" }).click();
+    await page.getByRole("navigation", { name: "Room list" }).getByRole("button", { name: "Add" }).click();
+    await page.getByRole("menuitem", { name: "Start chat" }).click();
     await page.getByTestId("invite-dialog-input").fill(bob.credentials.userId);
-    await page.locator(".mx_InviteDialog_tile_nameStack_name").getByText("Bob").click();
+    await page.getByRole("option", { name: bob.credentials.displayName }).click();
     await expect(
         page.locator(".mx_InviteDialog_userTile_pill .mx_InviteDialog_userTile_name").getByText("Bob"),
     ).toBeVisible();
@@ -158,7 +159,8 @@ test.describe("Cryptography", function () {
             await page.getByRole("textbox", { name: "Send a message…" }).press("Enter");
             await checkDMRoom(page);
             const bobRoomId = await bobJoin(page, bob);
-            await expect(page.locator(".mx_MessageComposer_e2eIcon")).toMatchScreenshot("composer-e2e-icon-normal.png");
+            // We no longer show the grey badge in the composer, check that it is not there.
+            await expect(page.locator(".mx_MessageComposer_e2eIcon")).toHaveCount(0);
 
             await testMessages(page, bob, bobRoomId);
             await verify(app, bob);

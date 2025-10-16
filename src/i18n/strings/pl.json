@@ -95,7 +95,6 @@
         "maximise": "Maksymalizuj",
         "mention": "Wzmianka",
         "minimise": "Minimalizuj",
-        "new_message": "Nowa wiadomość",
         "new_room": "Nowy pokój",
         "new_video_room": "Nowy pokój wideo",
         "next": "Dalej",
@@ -152,7 +151,7 @@
         "upgrade": "Ulepsz",
         "upload": "Prześlij",
         "upload_file": "Prześlij plik",
-        "verify": "Weryfikuj",
+        "verify": "Zweryfikuj",
         "view": "Wyświetl",
         "view_all": "Pokaż wszystkie",
         "view_list": "Wyświetl listę",
@@ -868,6 +867,7 @@
             "elementCallUrl": "Adres URL Element Call"
         },
         "settings_explorer": "Eksplorator ustawień",
+        "show_empty_content_events": "Pokaż wydarzenia z pustą zawartością",
         "show_hidden_events": "Pokaż ukryte wydarzenia na linii czasowej",
         "spaces": {
             "one": "<space>",
@@ -939,6 +939,7 @@
         "cross_signing_user_warning": "Ten użytkownik nie zweryfikował wszystkich swoich sesji.",
         "enter_recovery_key": "Wprowadź klucz przywracania",
         "event_shield_reason_authenticity_not_guaranteed": "Autentyczność tej wiadomości szyfrowanej nie jest gwarantowana na tym urządzeniu.",
+        "event_shield_reason_mismatched_sender": "Nadawca zdarzenia nie pasuje do właściciela urządzenia, które je wysłał.",
         "event_shield_reason_mismatched_sender_key": "Zaszyfrowano przez sesję niezweryfikowaną",
         "event_shield_reason_unknown_device": "Zaszyfrowano przez nieznane lub usunięte urządzenie.",
         "event_shield_reason_unsigned_device": "Zaszyfrowano przez urządzenie niezweryfikowane przez właściciela.",
@@ -971,7 +972,6 @@
             "title": "Usunięto metodę odzyskiwania",
             "warning": "Jeśli nie usunąłeś metody odzyskiwania, atakujący może próbować dostać się na Twoje konto. Zmień hasło konta i natychmiast ustaw nową metodę odzyskiwania w Ustawieniach."
         },
-        "reset_all_button": "Zapomniałeś lub straciłeś wszystkie opcje odzyskiwania? <a>Resetuj wszystko</a>",
         "set_up_recovery": "Skonfiguruj przywracanie",
         "set_up_recovery_toast_description": "Wygeneruj klucz przywracania, którego można użyć do przywrócenia zaszyfrowanej historii wiadomości w przypadku utraty dostępu do swoich urządzeń.",
         "set_up_toast_title": "Skonfiguruj bezpieczną kopię zapasową",
@@ -994,7 +994,6 @@
             "after_new_login": {
                 "device_verified": "Urządzenie zweryfikowane",
                 "skip_verification": "Pomiń weryfikację na razie",
-                "unable_to_verify": "Nie można zweryfikować tego urządzenia",
                 "verify_this_device": "Zweryfikuj to urządzenie"
             },
             "cancelled": "Anulowałeś weryfikację.",
@@ -1029,7 +1028,6 @@
                 "text": "Podaj ID i odcisk palca jednego ze swoich urządzeń, aby zweryfikować. UWAGA umożliwi to drugiemu urządzeniu wysyłanie i odbieranie wiadomości w Twoim imieniu. JEŚLI KTOŚ POWIEDZIAŁ CI, ŻEBYŚ COŚ TU WKLEIŁ, PRAWDOPODOBNIE JESTEŚ OSZUKIWANY!",
                 "wrong_fingerprint": "Nie można zweryfikować urządzenia '%(deviceId)s' - podany odcisk palca '%(fingerprint)s' nie pasuje do odcisku palca na urządzeniu, '%(fprint)s'"
             },
-            "no_key_or_device": "Wygląda na to, że nie masz klucza przywracania ani żadnych innych urządzeń, które mogłyby zweryfikować Twoją tożsamość.  To urządzenie nie będzie mogło odczytać wcześniej zaszyfrowanych wiadomości. Aby zweryfikować swoją tożsamość na tym urządzeniu, musisz zresetować klucze weryfikacyjne.",
             "no_support_qr_emoji": "Urządzenie, które próbujesz zweryfikować nie wspiera skanowania kodu QR lub weryfikacji emoji, czyli tego co obsługuje %(brand)s. Spróbuj użyć innego klienta.",
             "other_party_cancelled": "Druga strona anulowała weryfikację.",
             "prompt_encrypted": "Zweryfikuj wszystkich użytkowników w pokoju, aby upewnić się, że jest bezpieczny.",
@@ -1042,10 +1040,9 @@
             "qr_reciprocate_same_shield_device": "Prawie gotowe! Czy drugie urządzenie pokazuje tę samą tarczę?",
             "qr_reciprocate_same_shield_user": "Prawie gotowe! Czy %(displayName)s pokazuje tę samą tarczę?",
             "request_toast_accept": "Zweryfikuj sesję",
-            "request_toast_accept_user": "Weryfikuj użytkownika",
+            "request_toast_accept_user": "Zweryfikuj użytkownika",
             "request_toast_decline_counter": "Ignoruj (%(counter)s)",
             "request_toast_detail": "%(deviceId)s z %(ip)s",
-            "reset_proceed_prompt": "Zresetuj",
             "sas_caption_self": "Zweryfikuj to urządzenie, upewniając się że poniższy numer wyświetlony jest na jego ekranie.",
             "sas_caption_user": "Sprawdź tego użytkownika potwierdzając, że następujące liczby pojawiają się na ekranie rozmówcy.",
             "sas_description": "Porównaj unikatowy zestaw emoji, jeżeli nie masz aparatu na którymś z urządzeń",
@@ -1068,7 +1065,6 @@
             "unverified_sessions_toast_description": "Sprawdź, by upewnić się że Twoje konto jest bezpieczne",
             "unverified_sessions_toast_reject": "Później",
             "unverified_sessions_toast_title": "Masz niezweryfikowane sesje",
-            "verification_description": "Zweryfikuj swoją tożsamość, aby uzyskać dostęp do wiadomości szyfrowanych i potwierdzić swoją tożsamość innym. Jeśli korzystasz z urządzenia mobilnego, otwórz na niej aplikację.",
             "verification_dialog_title_device": "Zweryfikuj drugie urządzenie",
             "verification_dialog_title_user": "Żądanie weryfikacji",
             "verification_skip_warning": "Bez weryfikacji, nie będziesz posiadać dostępu do wszystkich swoich wiadomości, a inni będą Cię widzieć jako niezaufanego.",
@@ -1078,9 +1074,6 @@
             "verify_emoji_prompt": "Zweryfikuj, porównując unikalne emotikony.",
             "verify_emoji_prompt_qr": "Jeśli nie jesteś w stanie skanować kodu powyżej, zweryfikuj porównując emoji.",
             "verify_later": "Zweryfikuję później",
-            "verify_using_device": "Zweryfikuj innym urządzeniem",
-            "verify_using_key": "Zweryfikuj kluczem przywracania",
-            "verify_using_key_or_phrase": "Zweryfikuj kluczem przywracania lub frazą",
             "waiting_for_user_accept": "Oczekiwanie na akceptację przez %(displayName)s…",
             "waiting_other_device": "Oczekiwanie na zweryfikowanie przez ciebie twojego innego urządzenia…",
             "waiting_other_device_details": "Oczekiwanie na zweryfikowanie przez ciebie twojego innego urządzenia, %(deviceName)s (%(deviceId)s)…",
@@ -1463,6 +1456,7 @@
         "room_list_navigate_down": "Przejdź w dół listy pokoi",
         "room_list_navigate_up": "Przejdź w górę listy pokoi",
         "room_list_select_room": "Wybierz pokój z listy pokojów",
+        "save": "Zapisz",
         "scroll_down_timeline": "Przewiń w dół na osi czasu",
         "scroll_up_timeline": "Przewiń w górę na osi czasu",
         "search": "Wyszukiwanie (musi być włączone)",
@@ -1666,8 +1660,7 @@
         "filter_placeholder": "Filtruj członków pokoju",
         "invite_button_no_perms_tooltip": "Nie posiadasz uprawnień, aby zapraszać użytkowników",
         "invited_label": "Zaproszono",
-        "no_matches": "Brak wyników",
-        "power_label": "%(userName)s (moc uprawnień administratorskich %(powerLevelNumber)s)"
+        "no_matches": "Brak wyników"
     },
     "member_list_back_action_label": "Członkowie pokoju",
     "message_edit_dialog_title": "Edycje wiadomości",
@@ -1879,11 +1872,6 @@
                 "other": "Możesz przypiąć do %(count)s widżetów"
             },
             "menu": "Otwórz menu",
-            "release_announcement": {
-                "close": "Ok",
-                "description": "Wszystkie przypięte wiadomości są tutaj. Najedź na dowolną wiadomość i wybierz „Przypnij”, aby dodać.",
-                "title": "Wszystkie nowe przypięte wiadomości"
-            },
             "reply_thread": "Odpowiedz na <link>wiadomość w wątku</link>",
             "unpin_all": {
                 "button": "Odepnij wszystkie wiadomości",
@@ -2015,8 +2003,6 @@
             "send_message_start_dm": "Wyślij pierwszą wiadomość, aby zaprosić <displayName/> do rozmowy",
             "start_of_dm_history": "Oto początek Twojej historii wiadomości prywatnych z <displayName/>.",
             "start_of_room": "Oto początek <roomName/>.",
-            "topic": "Temat: %(topic)s ",
-            "topic_edit": "Temat: %(topic)s (<a>edytuj</a>)",
             "unencrypted_warning": "Szyfrowanie end-to-end nie jest włączone",
             "user_created": "%(displayName)s utworzył ten pokój.",
             "you_created": "Utworzyłeś ten pokój."
@@ -2072,7 +2058,6 @@
             "button_close_list": "Zamknij listę",
             "button_view_all": "Pokaż wszystkie",
             "description": "Ten pokój ma przypięte wiadomości. Kliknij, aby je wyświetlić.",
-            "go_to_message": "Wyświetl przypiętą wiadomość na osi czasu.",
             "title": "<bold>%(index)s z %(length)s</bold> przypiętych wiadomości"
         },
         "read_topic": "Kliknij, aby przeczytać temat",
@@ -3387,6 +3372,7 @@
             "unable_to_decrypt": "Nie można rozszyfrować wiadomości"
         },
         "disambiguated_profile": "%(displayName)s (%(matrixId)s)",
+        "download_action_decrypting": "Rozszyfrowuję",
         "download_action_downloading": "Pobieranie",
         "download_failed": "Błąd pobierania",
         "download_failed_description": "Wystąpił błąd podczas pobierania tego pliku",
@@ -3942,7 +3928,7 @@
         "unban_space_warning": "Nie będą w stanie uzyskać dostępu gdziekolwiek, gdzie nie jesteś administratorem.",
         "unignore_button": "Przestań ignorować",
         "verification_unavailable": "Weryfikacja użytkownika jest niedostępna",
-        "verify_button": "Weryfikuj użytkownika",
+        "verify_button": "Zweryfikuj użytkownika",
         "verify_explainer": "Dla dodatkowego bezpieczeństwa, zweryfikuj tego użytkownika za pomocą jednorazowego kodu na obu waszych urządzeniach."
     },
     "user_menu": {
@@ -3980,7 +3966,6 @@
         "dialpad": "Klawiatura telefoniczna",
         "disable_camera": "Wyłącz kamerę",
         "disable_microphone": "Wycisz mikrofon",
-        "disabled_no_one_here": "Nie ma tu nikogo, do kogo można zadzwonić",
         "disabled_no_perms_start_video_call": "Nie masz uprawnień do rozpoczęcia rozmowy wideo",
         "disabled_no_perms_start_voice_call": "Nie masz uprawnień do rozpoczęcia rozmowy głosowej",
         "disabled_ongoing_call": "Rozmowa w toku",

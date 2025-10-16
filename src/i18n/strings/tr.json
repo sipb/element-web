@@ -80,7 +80,6 @@
         "maximise": "Maksimize",
         "mention": "Sizden bahsediyor",
         "minimise": "Minimize",
-        "new_message": "Yeni mesaj",
         "new_room": "Yeni oda",
         "new_video_room": "Yeni video odası",
         "next": "İleri",
@@ -931,7 +930,6 @@
             "title": "Kurtarma Yöntemi Kaldırıldı",
             "warning": "Kurtarma yöntemini kaldırmadıysanız, bir saldırgan hesabınıza erişmeye çalışıyor olabilir. Hesap parolanızı değiştirin ve Ayarlar'da hemen yeni bir kurtarma yöntemi belirleyin."
         },
-        "reset_all_button": "Tüm kurtarma yöntemlerini unuttunuz veya kaybettiniz mi? <a>Tümünü sıfırla</a>",
         "set_up_recovery": "Kurtarmayı ayarlayın",
         "set_up_recovery_toast_description": "Cihazlarınıza erişiminizi kaybetmeniz durumunda şifrelenmiş mesaj geçmişinizi geri yüklemek için kullanılabilecek bir kurtarma anahtarı oluşturun.",
         "set_up_toast_title": "Güvenli Yedekleme kur",
@@ -952,7 +950,6 @@
             "after_new_login": {
                 "device_verified": "Cihaz doğrulandı",
                 "skip_verification": "Şimdilik doğrulamayı atla",
-                "unable_to_verify": "Bu cihaz doğrulanamıyor",
                 "verify_this_device": "Bu cihazı doğrulayın"
             },
             "cancelled": "Doğrulamayı iptal ettiniz.",
@@ -972,7 +969,6 @@
             "incoming_sas_dialog_waiting": "Ortağın onaylaması bekleniyor…",
             "incoming_sas_user_dialog_text_1": "Güvenilir olarak işaretlemek için bu kullanıcıyı doğrulayın. Kullanıcılara güvenmek, uçtan uca şifrelenmiş mesajları kullanırken içinizin daha rahat olmasını sağlar.",
             "incoming_sas_user_dialog_text_2": "Bu kullanıcıyı doğrulamak, oturumlarını güvenilir olarak işaretleyecek ve ayrıca oturumunuzu onlar için güvenilir olarak işaretleyecektir.",
-            "no_key_or_device": "Görünüşe göre bir Güvenlik Anahtarınız veya doğrulama yapabileceğiniz başka bir cihazınız yok. Bu cihaz eski şifrelenmiş mesajlara erişemeyecek. Bu cihazda kimliğinizi doğrulamak için doğrulama anahtarlarınızı sıfırlamanız gerekir.",
             "no_support_qr_emoji": "Doğrulamaya çalıştığınız cihaz, %(brand)s tarafından desteklenen bir QR kodu taramayı veya emoji doğrulamasını desteklemiyor. Farklı bir istemciyle deneyin.",
             "other_party_cancelled": "Diğer taraf onaylamayı reddetti.",
             "prompt_encrypted": "Güvenli olduğuna emin olmak için odadaki tüm kullanıcıları onaylayın.",
@@ -988,7 +984,6 @@
             "request_toast_accept_user": "Kullanıcıyı Doğrula",
             "request_toast_decline_counter": "Yoksay (%(counter)s)",
             "request_toast_detail": "%(ip)s 'den %(deviceId)s",
-            "reset_proceed_prompt": "Sıfırlama işlemine devam et",
             "sas_caption_self": "Ekranda aşağıdaki numaranın göründüğünü onaylayarak bu cihazı doğrulayın.",
             "sas_caption_user": "Aşağıdaki numaranın ekranlarında göründüğünü onaylayarak bu kullanıcıyı doğrulayın.",
             "sas_description": "Her iki cihazda da kamera yoksa benzersiz bir emoji setini karşılaştırın",
@@ -1011,7 +1006,6 @@
             "unverified_sessions_toast_description": "Hesabınızın güvende olduğundan emin olmak için inceleyin",
             "unverified_sessions_toast_reject": "Sonra",
             "unverified_sessions_toast_title": "Doğrulanmamış oturumlarınız var",
-            "verification_description": "Şifreli mesajlara erişmek ve kimliğinizi başkalarına kanıtlamak için kimliğinizi doğrulayın. Ayrıca bir mobil cihaz kullanıyorsanız, devam etmeden önce lütfen mobilden uygulamayı açın.",
             "verification_dialog_title_device": "Diğer cihazı doğrulayın",
             "verification_dialog_title_user": "Doğrulama Talebi",
             "verification_skip_warning": "Doğrulama yapmazsanız, tüm mesajlarınıza erişemezsiniz ve başkalarına güvenilmez görünebilirsiniz.",
@@ -1021,9 +1015,6 @@
             "verify_emoji_prompt": "Eşsiz emoji eşleştirme ile doğrulama.",
             "verify_emoji_prompt_qr": "Yukarıdaki kodu tarayamıyorsanız benzersiz emojiyi karşılaştırarak doğrulayın.",
             "verify_later": "Daha sonra doğrulayacağım",
-            "verify_using_device": "Başka bir cihazla doğrula",
-            "verify_using_key": "Güvenlik Anahtarı ile Doğrula",
-            "verify_using_key_or_phrase": "Güvenlik Anahtarı veya İfadesiyle Doğrula",
             "waiting_for_user_accept": "%(displayName)s kullanıcısın onaylaması için bekleniliyor…",
             "waiting_other_device": "Diğer cihazınızda doğrulamanız bekleniyor...",
             "waiting_other_device_details": "Diğer cihazınızdan doğrulama beklenior, %(deviceName)s (%(deviceId)s)...",
@@ -1601,8 +1592,7 @@
         "filter_placeholder": "Oda üyelerini Filtrele",
         "invite_button_no_perms_tooltip": "Kullanıcıları davet etme izniniz yok",
         "invited_label": "Davet Edildi",
-        "no_matches": "Eşleşme yok",
-        "power_label": "%(userName)s (güç %(powerLevelNumber)s)"
+        "no_matches": "Eşleşme yok"
     },
     "member_list_back_action_label": "Oda üyeleri",
     "message_edit_dialog_title": "Mesajları düzenle",
@@ -1808,11 +1798,6 @@
                 "other": "En fazla %(count)s widget'ı sabitleyebilirsiniz"
             },
             "menu": "Menüyü aç",
-            "release_announcement": {
-                "close": "Tamam",
-                "description": "Sabitlenmiş tüm mesajları burada bulabilirsiniz. Herhangi bir mesajın üzerine gelin ve eklemek için \"Sabitle\"yi seçin.",
-                "title": "Tüm yeni sabitlenmiş mesajlar"
-            },
             "reply_thread": "<link>Mesaj dizisinde</link> yanıtla",
             "unpin_all": {
                 "button": "Tüm mesajların sabitlemesini kaldır",
@@ -1942,8 +1927,6 @@
             "send_message_start_dm": "<displayName/> adlı kişiyi sohbete davet etmek için ilk mesajınızı gönderin",
             "start_of_dm_history": "Bu <displayName/> ile olan direkt mesaj geçmişinizin başlangıcıdır.",
             "start_of_room": "Bu <roomName/> odasının başlangıcıdır.",
-            "topic": "Konu: %(topic)s ",
-            "topic_edit": "Konu: %(topic)s (<a>düzenle</a>)",
             "unencrypted_warning": "Uçtan uca şifreleme etkin değil",
             "user_created": "%(displayName)s bu odayı oluşturdu.",
             "you_created": "Bu odayı oluşturdunuz."
@@ -1999,7 +1982,6 @@
             "button_close_list": "Listeyi kapat",
             "button_view_all": "Tümünü görüntüle",
             "description": "Bu odada sabitlenmiş mesajlar var. Görüntülemek için tıklayın.",
-            "go_to_message": "Sabitlenmiş mesajı zaman çizelgesinde görüntüle.",
             "title": "<bold>%(index)s / %(length)s</bold> Sabitlenmiş mesajlar"
         },
         "read_topic": "Başlığı okumak için tıklayın",
@@ -3237,6 +3219,7 @@
             "unable_to_decrypt": "Mesaj şifresi çözülemedi"
         },
         "disambiguated_profile": "%(displayName)s (%(matrixId)s)",
+        "download_action_decrypting": "Şifre çözülüyor",
         "download_action_downloading": "İndiriliyor",
         "download_failed": "İndirme başarısız oldu",
         "download_failed_description": "Bu dosya indirilirken bir hata oluştu",
@@ -3817,7 +3800,6 @@
         "dialpad": "Tuş takımı",
         "disable_camera": "Kamerayı kapat",
         "disable_microphone": "Mikrofonu sessize al",
-        "disabled_no_one_here": "Burada arayacak kimse yok.",
         "disabled_no_perms_start_video_call": "Görüntülü arama başlatmak için izniniz yok",
         "disabled_no_perms_start_voice_call": "Sesli arama başlatmak için izniniz yok",
         "disabled_ongoing_call": "Devam eden çağrı",

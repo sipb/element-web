@@ -12,10 +12,10 @@ import {
     ClientEvent,
     type Room,
     EventType,
+    type HistoryVisibility,
     RoomCreateTypeField,
     RoomType,
     type ICreateRoomOpts,
-    HistoryVisibility,
     JoinRule,
     Preset,
     RestrictedAllowType,
@@ -42,6 +42,7 @@ import { waitForMember } from "./utils/membership";
 import { PreferredRoomVersions } from "./utils/PreferredRoomVersions";
 import SettingsStore from "./settings/SettingsStore";
 import { MEGOLM_ENCRYPTION_ALGORITHM } from "./utils/crypto";
+import { ElementCallEventType, ElementCallMemberEventType } from "./call-types";
 
 // we define a number of interfaces which take their names from the js-sdk
 /* eslint-disable camelcase */
@@ -165,9 +166,9 @@ export default async function createRoom(client: MatrixClient, opts: IOpts): Pro
                 events: {
                     ...DEFAULT_EVENT_POWER_LEVELS,
                     // Allow all users to send call membership updates
-                    [ElementCall.MEMBER_EVENT_TYPE.name]: 0,
+                    [ElementCallMemberEventType.name]: 0,
                     // Make calls immutable, even to admins
-                    [ElementCall.CALL_EVENT_TYPE.name]: 200,
+                    [ElementCallEventType.name]: 200,
                 },
                 users: {
                     // Temporarily give ourselves the power to set up a call
@@ -180,9 +181,9 @@ export default async function createRoom(client: MatrixClient, opts: IOpts): Pro
             events: {
                 ...DEFAULT_EVENT_POWER_LEVELS,
                 // It should always (including non video rooms) be possible to join a group call.
-                [ElementCall.MEMBER_EVENT_TYPE.name]: 0,
+                [ElementCallMemberEventType.name]: 0,
                 // Make sure only admins can enable it (DEPRECATED)
-                [ElementCall.CALL_EVENT_TYPE.name]: 100,
+                [ElementCallEventType.name]: 100,
             },
         };
     }
@@ -223,10 +224,6 @@ export default async function createRoom(client: MatrixClient, opts: IOpts): Pro
 
     if (opts.parentSpace) {
         createOpts.initial_state.push(makeSpaceParentEvent(opts.parentSpace, true));
-        if (!opts.historyVisibility) {
-            opts.historyVisibility =
-                createOpts.preset === Preset.PublicChat ? HistoryVisibility.WorldReadable : HistoryVisibility.Shared;
-        }
 
         if (opts.joinRule === JoinRule.Restricted) {
             createOpts.room_version = PreferredRoomVersions.RestrictedRooms;
