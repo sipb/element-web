@@ -54,9 +54,7 @@ test.describe("Invite dialog", function () {
 
         await other.getByRole("option", { name: botName }).click();
 
-        await expect(
-            other.locator(".mx_InviteDialog_userTile_pill .mx_InviteDialog_userTile_name").getByText(botName),
-        ).toBeVisible();
+        await expect(other.getByTestId("invite-dialog-input-wrapper").getByText(botName)).toBeVisible();
 
         // Take a snapshot of the invite dialog with a user pill
         await expect(page.locator(".mx_Dialog")).toMatchScreenshot("invite-dialog-room-with-user-pill.png");
@@ -75,7 +73,10 @@ test.describe("Invite dialog", function () {
         "should support inviting a user to Direct Messages",
         { tag: "@screenshot" },
         async ({ page, app, user, bot }) => {
-            await page.getByRole("navigation", { name: "Room list" }).getByRole("button", { name: "Add" }).click();
+            await page
+                .getByRole("navigation", { name: "Room list" })
+                .getByRole("button", { name: "New conversation" })
+                .click();
             await page.getByRole("menuitem", { name: "Start chat" }).click();
 
             const other = page.locator(".mx_InviteDialog_other");
@@ -95,9 +96,7 @@ test.describe("Invite dialog", function () {
             await expect(other.getByRole("option", { name: botName }).getByText(bot.credentials.userId)).toBeVisible();
             await other.getByRole("option", { name: botName }).click();
 
-            await expect(
-                other.locator(".mx_InviteDialog_userTile_pill .mx_InviteDialog_userTile_name").getByText(botName),
-            ).toBeVisible();
+            await expect(other.getByTestId("invite-dialog-input-wrapper").getByText(botName)).toBeVisible();
 
             // Take a snapshot of the invite dialog with a user pill
             await expect(page.locator(".mx_Dialog")).toMatchScreenshot("invite-dialog-dm-with-user-pill.png");
@@ -116,6 +115,8 @@ test.describe("Invite dialog", function () {
                 "background-color",
                 "rgba(0, 0, 0, 0)",
             );
+
+            await expect(page.locator(".mx_RoomView")).toMatchScreenshot("send_your_first_message_view.png");
 
             // Send a message to invite the bots
             const composer = app.getComposer().locator("[contenteditable]");

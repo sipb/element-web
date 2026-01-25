@@ -1144,7 +1144,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
 
                 if (rovingContext.state.activeNode && rovingContext.state.nodes.length > 0) {
                     let nodes = rovingContext.state.nodes;
-                    if (!query && !filter !== null) {
+                    if (!query && filter === null) {
                         // If the current selection is not in the recently viewed row then only include the
                         // first recently viewed so that is the target when the user is switching into recently viewed.
                         const keptRecentlyViewedRef = nodeIsForRecentlyViewed(rovingContext.state.activeNode)
@@ -1164,7 +1164,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                 // only handle these keys when we are in the recently viewed row of options
                 if (
                     !query &&
-                    !filter !== null &&
+                    filter === null &&
                     rovingContext.state.activeNode &&
                     rovingContext.state.nodes.length > 0 &&
                     nodeIsForRecentlyViewed(rovingContext.state.activeNode)
@@ -1226,8 +1226,8 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                             <>
                                 <kbd>↓</kbd>
                                 <kbd>↑</kbd>
-                                {!filter !== null && !query && <kbd>←</kbd>}
-                                {!filter !== null && !query && <kbd>→</kbd>}
+                                {filter === null && !query && <kbd>←</kbd>}
+                                {filter === null && !query && <kbd>→</kbd>}
                             </>
                         ),
                     },
@@ -1279,7 +1279,7 @@ const SpotlightDialog: React.FC<IProps> = ({ initialText = "", initialFilter = n
                         aria-label={_t("action|search")}
                         aria-describedby="mx_SpotlightDialog_keyboardPrompt"
                     />
-                    {(publicRoomsLoading || peopleLoading || profileLoading) && <Spinner w={24} h={24} />}
+                    {(publicRoomsLoading || peopleLoading || profileLoading) && <Spinner size={24} />}
                 </div>
 
                 <div

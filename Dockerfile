@@ -1,7 +1,7 @@
-# syntax=docker.io/docker/dockerfile:1.18-labs@sha256:79cdc14e1c220efb546ad14a8ebc816e3277cd72d27195ced5bebdd226dd1025
+# syntax=docker.io/docker/dockerfile:1.20-labs@sha256:dbcde2ebc4abc8bb5c3c499b9c9a6876842bf5da243951cd2697f921a7aeb6a9
 
 # Builder
-FROM --platform=$BUILDPLATFORM node:22-bullseye@sha256:f8c398a3ad2612293e8827915c056ed0f5cc708b0f676274bb6c732e3c10f93d AS builder
+FROM --platform=$BUILDPLATFORM node:24-bullseye@sha256:5583cbe5d3347db372d9a9100eba272b548ca1f53246b9b769334bcd0eef2c26 AS builder
 
 # Support custom branch of the js-sdk. This also helps us build images of element-web develop.
 ARG USE_CUSTOM_SDKS=false
@@ -19,7 +19,7 @@ RUN /src/scripts/docker-package.sh
 RUN cp /src/config.sample.json /src/webapp/config.json
 
 # App
-FROM nginxinc/nginx-unprivileged:alpine-slim@sha256:14b127ed799301a21a1798516443c675237120c76b9a738d43c5e4747de4b1c9
+FROM nginxinc/nginx-unprivileged:alpine-slim@sha256:a6bec37058b9047ece799c01d98dc6d5aa0542b6583cc69f187652f91331a752
 
 # Need root user to install packages & manipulate the usr directory
 USER root

@@ -10,7 +10,7 @@ import {
     type StartedPostgreSqlContainer,
 } from "@element-hq/element-web-playwright-common/lib/testcontainers";
 
-const TAG = "main@sha256:09f64cd1633f1c82756b8e7d83cec4575b15782709674b0a69a4ad2a931e4e4f";
+const TAG = "main@sha256:2c5966c2ff06458ac5cbae959f12e19d30e3ebb63c641d31ec1ae08abccb9c6d";
 
 /**
  * MatrixAuthenticationServiceContainer which freezes the docker digest to
